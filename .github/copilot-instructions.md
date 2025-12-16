@@ -1,6 +1,6 @@
-# GitHub Copilot Agent Instructions
+# Repository Instructions for GitHub Copilot
 
-This document provides guidance for GitHub Copilot coding agent when working on this repository.
+This document provides guidance for GitHub Copilot when working on this repository.
 
 ## Repository Overview
 
@@ -143,7 +143,7 @@ jq . config.json
 - **Maintainer**: @rios0rios0
 - **License**: See LICENSE file in repository root
 
-## Important Notes for Copilot Agent
+## Important Notes for Copilot
 
 1. This is a Home Assistant add-ons repository - follow Home Assistant conventions strictly
 2. Do not modify working functionality unless necessary or fixing security issues
