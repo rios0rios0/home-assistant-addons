@@ -1,0 +1,17 @@
+{
+  "name": "Ollama Container",
+  "version": "1.0.0",
+  "slug": "ollama-container",
+  "description": "Ollama integration for Home Assistant, enabling easy deployment and customization of large language models for local AI capabilities.",
+  "arch": [
+    "amd64",
+    "aarch64",
+    "armhf",
+    "armv7"
+  ],
+  "url": "https://github.com/rios0rios0/home-assistant-addons/tree/main/ollama-container",
+  "startup": "application",
+  "boot": "auto",
+  "options": {},
+  "schema": {}
+}
