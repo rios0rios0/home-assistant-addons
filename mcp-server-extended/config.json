@@ -1,0 +1,17 @@
+{
+  "name": "MCP Server Extended",
+  "version": "1.0.0",
+  "slug": "mcp-server-extended",
+  "description": "Extended MCP (Model Context Protocol) server functionality for Home Assistant, providing modular and containerized services for advanced integrations.",
+  "arch": [
+    "amd64",
+    "aarch64",
+    "armhf",
+    "armv7"
+  ],
+  "url": "https://github.com/rios0rios0/home-assistant-addons/tree/main/mcp-server-extended",
+  "startup": "application",
+  "boot": "auto",
+  "options": {},
+  "schema": {}
+}
