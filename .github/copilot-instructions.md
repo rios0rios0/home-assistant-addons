@@ -105,8 +105,8 @@ Currently, this repository does not have automated build or test infrastructure.
 
 To validate JSON files:
 ```bash
-# Using python
-python -m json.tool config.json
+# Using python3
+python3 -m json.tool config.json
 
 # Using jq
 jq . config.json
