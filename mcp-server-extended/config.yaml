@@ -1,0 +1,33 @@
+---
+version: 0.1.0
+slug: mcp-server-extended
+name: MCP Server Extended
+description: Model Context Protocol server for extended Home Assistant automation management
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/mcp-server-extended
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: true
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/mcp-server-extended/{arch}-addon
+ingress: false
+init: false
+map:
+  - type: addon_config
+    read_only: false
+options:
+  ha_url: http://homeassistant.local:8123
+  ha_token: ""
+  log_level: info
+schema:
+  ha_url: str
+  ha_token: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: services
+stage: stable

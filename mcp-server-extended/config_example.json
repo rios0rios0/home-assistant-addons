@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "home-assistant-automations": {
+      "command": "pdm",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "mcp_ha_extended.server"
+      ],
+      "env": {
+        "HA_URL": "http://homeassistant.local:8123",
+        "HA_TOKEN": "your_long_lived_access_token_here"
+      }
+    }
+  }
+}

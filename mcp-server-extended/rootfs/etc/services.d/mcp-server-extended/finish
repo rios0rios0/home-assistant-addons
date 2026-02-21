@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant MCP Extended Server - Finish Script
+# ==============================================================================
+
+bashio::log.info "Stopping MCP Server Extended..."

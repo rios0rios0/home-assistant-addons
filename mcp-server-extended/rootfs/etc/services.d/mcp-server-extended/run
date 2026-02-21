@@ -1,0 +1,39 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant MCP Extended Server
+# ==============================================================================
+
+declare -a options
+declare ha_url
+declare ha_token
+declare log_level
+
+# Get configuration options
+ha_url=$(bashio::config 'ha_url')
+ha_token=$(bashio::config 'ha_token')
+log_level=$(bashio::config 'log_level' 'info')
+
+# Export environment variables
+export HA_URL="${ha_url}"
+export HA_TOKEN="${ha_token}"
+export PYTHONUNBUFFERED=1
+
+# Log startup
+bashio::log.info "Starting MCP Server Extended..."
+bashio::log.info "HA URL: ${ha_url}"
+bashio::log.info "Log Level: ${log_level}"
+
+# Check if HA token is set
+if [ -z "${ha_token}" ]; then
+    bashio::log.error "HA_TOKEN is not set! Please configure it in the addon options."
+    exit 1
+fi
+
+# Change to app directory
+cd /app || exit 1
+
+# Add PDM's bin directory to PATH
+export PATH="/root/.local/share/pdm/venv/bin:${PATH}"
+
+# Run the MCP server
+exec pdm run python -m mcp_ha_extended.server

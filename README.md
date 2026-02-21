@@ -8,11 +8,11 @@ Home Assistant add-ons repository featuring mcp-server-extended and ollama-conta
 
 ### MCP Server Extended
 
-Extended MCP (Model Context Protocol) server functionality for Home Assistant, providing modular and containerized services for advanced integrations.
+Model Context Protocol (MCP) server for extended Home Assistant automation management. Provides 8 MCP tools for listing, creating, updating, deleting, triggering, and enabling/disabling automations via the Home Assistant REST API.
 
-- **Version**: 1.0.0
-- **Architectures**: amd64, aarch64, armhf, armv7
-- **Startup**: Application
+- **Version**: 0.1.0
+- **Architectures**: amd64, aarch64, armv7
+- **Startup**: Services
 - [Documentation](./mcp-server-extended/README.md)
 
 ### Ollama Container
