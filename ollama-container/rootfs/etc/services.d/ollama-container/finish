@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Ollama Container - Finish Script
+# ==============================================================================
+
+bashio::log.info "Stopping Ollama Container..."

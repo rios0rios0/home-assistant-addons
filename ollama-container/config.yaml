@@ -1,0 +1,49 @@
+---
+version: 1.0.0
+slug: ollama-container
+name: Ollama Container
+description: >-
+  Ollama integration for Home Assistant, enabling easy deployment and
+  customization of large language models for local AI capabilities.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/ollama-container
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/ollama-container/{arch}-addon
+ingress: false
+init: false
+ports:
+  "11434/tcp": 11434
+ports_description:
+  "11434/tcp": Ollama API
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  ollama_host: "0.0.0.0:11434"
+  ollama_models: /share/ollama/models
+  ollama_keep_alive: 5m
+  ollama_num_parallel: 1
+  ollama_max_loaded_models: 1
+  default_model: ""
+  log_level: info
+schema:
+  ollama_host: str
+  ollama_models: str
+  ollama_keep_alive: str
+  ollama_num_parallel: int
+  ollama_max_loaded_models: int
+  default_model: str?
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: stable

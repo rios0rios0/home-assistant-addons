@@ -1,0 +1,63 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Ollama Container
+# ==============================================================================
+
+declare ollama_host
+declare ollama_models
+declare ollama_keep_alive
+declare ollama_num_parallel
+declare ollama_max_loaded_models
+declare default_model
+declare log_level
+
+# Get configuration options
+ollama_host=$(bashio::config 'ollama_host')
+ollama_models=$(bashio::config 'ollama_models')
+ollama_keep_alive=$(bashio::config 'ollama_keep_alive')
+ollama_num_parallel=$(bashio::config 'ollama_num_parallel')
+ollama_max_loaded_models=$(bashio::config 'ollama_max_loaded_models')
+default_model=$(bashio::config 'default_model')
+log_level=$(bashio::config 'log_level' 'info')
+
+# Export environment variables
+export OLLAMA_HOST="${ollama_host}"
+export OLLAMA_MODELS="${ollama_models}"
+export OLLAMA_KEEP_ALIVE="${ollama_keep_alive}"
+export OLLAMA_NUM_PARALLEL="${ollama_num_parallel}"
+export OLLAMA_MAX_LOADED_MODELS="${ollama_max_loaded_models}"
+
+# Create models directory
+mkdir -p "${ollama_models}"
+
+# Log startup
+bashio::log.info "Starting Ollama Container..."
+bashio::log.info "Ollama Host: ${ollama_host}"
+bashio::log.info "Models Directory: ${ollama_models}"
+bashio::log.info "Keep Alive: ${ollama_keep_alive}"
+bashio::log.info "Log Level: ${log_level}"
+
+# Pull default model if configured
+if bashio::var.has_value "${default_model}"; then
+    bashio::log.info "Default model configured: ${default_model}"
+    bashio::log.info "Model will be pulled after server starts..."
+
+    # Start Ollama in background, pull model, then wait
+    ollama serve &
+    OLLAMA_PID=$!
+
+    # Wait for Ollama to be ready
+    for i in $(seq 1 30); do
+        if curl -sf "http://127.0.0.1:11434/api/tags" > /dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+
+    bashio::log.info "Pulling model: ${default_model}"
+    ollama pull "${default_model}" || bashio::log.warning "Failed to pull model: ${default_model}"
+
+    wait ${OLLAMA_PID}
+else
+    exec ollama serve
+fi

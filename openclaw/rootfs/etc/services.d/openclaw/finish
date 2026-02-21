@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant OpenClaw - Finish Script
+# ==============================================================================
+
+bashio::log.info "Stopping OpenClaw..."

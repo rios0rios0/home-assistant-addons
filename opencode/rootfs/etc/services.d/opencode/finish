@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant OpenCode - Finish Script
+# ==============================================================================
+
+bashio::log.info "Stopping OpenCode..."

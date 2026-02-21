@@ -1,0 +1,96 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant OpenClaw
+# ==============================================================================
+
+declare anthropic_api_key
+declare openai_api_key
+declare default_model
+declare telegram_enabled
+declare telegram_bot_token
+declare discord_enabled
+declare discord_bot_token
+declare slack_enabled
+declare slack_bot_token
+declare webchat_enabled
+declare log_level
+
+# Get configuration options
+anthropic_api_key=$(bashio::config 'anthropic_api_key')
+openai_api_key=$(bashio::config 'openai_api_key')
+default_model=$(bashio::config 'default_model')
+telegram_enabled=$(bashio::config 'telegram_enabled')
+telegram_bot_token=$(bashio::config 'telegram_bot_token')
+discord_enabled=$(bashio::config 'discord_enabled')
+discord_bot_token=$(bashio::config 'discord_bot_token')
+slack_enabled=$(bashio::config 'slack_enabled')
+slack_bot_token=$(bashio::config 'slack_bot_token')
+webchat_enabled=$(bashio::config 'webchat_enabled')
+log_level=$(bashio::config 'log_level' 'info')
+
+# Export environment variables for AI providers
+if bashio::var.has_value "${anthropic_api_key}"; then
+    export ANTHROPIC_API_KEY="${anthropic_api_key}"
+fi
+if bashio::var.has_value "${openai_api_key}"; then
+    export OPENAI_API_KEY="${openai_api_key}"
+fi
+
+# Build OpenClaw configuration
+mkdir -p /root/.openclaw
+
+# Build channels array for config
+channels="[]"
+if [ "${telegram_enabled}" = "true" ] && bashio::var.has_value "${telegram_bot_token}"; then
+    channels=$(echo "${channels}" | python3 -c "
+import json, sys
+c = json.load(sys.stdin)
+c.append({'type': 'telegram', 'token': '${telegram_bot_token}'})
+json.dump(c, sys.stdout)
+" 2>/dev/null || echo "${channels}")
+fi
+
+if [ "${discord_enabled}" = "true" ] && bashio::var.has_value "${discord_bot_token}"; then
+    channels=$(echo "${channels}" | python3 -c "
+import json, sys
+c = json.load(sys.stdin)
+c.append({'type': 'discord', 'token': '${discord_bot_token}'})
+json.dump(c, sys.stdout)
+" 2>/dev/null || echo "${channels}")
+fi
+
+if [ "${slack_enabled}" = "true" ] && bashio::var.has_value "${slack_bot_token}"; then
+    channels=$(echo "${channels}" | python3 -c "
+import json, sys
+c = json.load(sys.stdin)
+c.append({'type': 'slack', 'token': '${slack_bot_token}'})
+json.dump(c, sys.stdout)
+" 2>/dev/null || echo "${channels}")
+fi
+
+# Generate openclaw.json config
+cat > /root/.openclaw/openclaw.json <<EOF
+{
+  "agent": {
+    "model": "${default_model}"
+  },
+  "gateway": {
+    "port": 18789
+  },
+  "webchat": {
+    "enabled": ${webchat_enabled}
+  }
+}
+EOF
+
+# Log startup
+bashio::log.info "Starting OpenClaw..."
+bashio::log.info "Model: ${default_model}"
+bashio::log.info "Webchat: ${webchat_enabled}"
+bashio::log.info "Telegram: ${telegram_enabled}"
+bashio::log.info "Discord: ${discord_enabled}"
+bashio::log.info "Slack: ${slack_enabled}"
+bashio::log.info "Log Level: ${log_level}"
+
+# Start OpenClaw gateway
+exec openclaw gateway

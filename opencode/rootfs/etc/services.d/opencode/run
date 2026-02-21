@@ -1,0 +1,62 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant OpenCode
+# ==============================================================================
+
+declare anthropic_api_key
+declare openai_api_key
+declare gemini_api_key
+declare groq_api_key
+declare default_provider
+declare default_model
+declare working_directory
+declare log_level
+
+# Get configuration options
+anthropic_api_key=$(bashio::config 'anthropic_api_key')
+openai_api_key=$(bashio::config 'openai_api_key')
+gemini_api_key=$(bashio::config 'gemini_api_key')
+groq_api_key=$(bashio::config 'groq_api_key')
+default_provider=$(bashio::config 'default_provider' 'anthropic')
+default_model=$(bashio::config 'default_model')
+working_directory=$(bashio::config 'working_directory' '/share')
+log_level=$(bashio::config 'log_level' 'info')
+
+# Export environment variables for AI providers
+if bashio::var.has_value "${anthropic_api_key}"; then
+    export ANTHROPIC_API_KEY="${anthropic_api_key}"
+fi
+if bashio::var.has_value "${openai_api_key}"; then
+    export OPENAI_API_KEY="${openai_api_key}"
+fi
+if bashio::var.has_value "${gemini_api_key}"; then
+    export GEMINI_API_KEY="${gemini_api_key}"
+fi
+if bashio::var.has_value "${groq_api_key}"; then
+    export GROQ_API_KEY="${groq_api_key}"
+fi
+
+# Ensure working directory exists
+mkdir -p "${working_directory}"
+
+# Generate .opencode.json config if default_model is set
+if bashio::var.has_value "${default_model}"; then
+    cat > "${working_directory}/.opencode.json" <<EOF
+{
+  "provider": "${default_provider}",
+  "model": "${default_model}"
+}
+EOF
+fi
+
+# Log startup
+bashio::log.info "Starting OpenCode via ttyd..."
+bashio::log.info "Provider: ${default_provider}"
+bashio::log.info "Working Directory: ${working_directory}"
+bashio::log.info "Log Level: ${log_level}"
+
+# Start ttyd serving OpenCode TUI
+exec ttyd \
+    --port 7681 \
+    --writable \
+    opencode --dir "${working_directory}"
