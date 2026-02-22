@@ -176,23 +176,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ matrix.addon }}-*
+          path: /tmp/digests
+          merge-multiple: true
+
       - name: Create multi-arch manifest
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
           VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
-          ARCHS=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml")
 
-          # Build the list of arch-specific source images
+          # Build the list of digest-based source references
           SOURCES=""
-          for arch in $ARCHS; do
-            SOURCES="${SOURCES} ${IMAGE}:${arch}"
+          for f in /tmp/digests/*; do
+            digest=$(cat "$f")
+            SOURCES="${SOURCES} ${IMAGE}@${digest}"
           done
 
           echo "Creating manifest for ${IMAGE}"
           echo "  Version: ${VERSION}"
           echo "  Sources:${SOURCES}"
 
-          # Create manifest tagged as the addon version
           docker buildx imagetools create \
             --tag "${IMAGE}:${VERSION}" \
             --tag "${IMAGE}:latest" \

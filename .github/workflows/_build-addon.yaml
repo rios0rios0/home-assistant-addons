@@ -76,13 +76,13 @@ jobs:
           echo "  BUILD_FROM: ${BASE_IMAGE}"
           yq eval '.args | to_entries | .[] | "  " + .key + ": " + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
 
-      - name: Build and push
+      - name: Build (PR validation)
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: ./${{ inputs.addon }}
           platforms: ${{ steps.platform.outputs.platform }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}:${{ inputs.arch }}
+          push: false
           provenance: false
           build-args: |
             BUILD_FROM=${{ steps.buildargs.outputs.BUILD_FROM }}
@@ -90,6 +90,36 @@ jobs:
             ${{ steps.buildargs.outputs.BUILD_ARGS }}
           cache-from: type=gha,scope=${{ inputs.addon }}-${{ inputs.arch }}
           cache-to: type=gha,mode=max,scope=${{ inputs.addon }}-${{ inputs.arch }}
+
+      - name: Build and push by digest
+        if: github.event_name != 'pull_request'
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ inputs.addon }}
+          platforms: ${{ steps.platform.outputs.platform }}
+          provenance: false
+          build-args: |
+            BUILD_FROM=${{ steps.buildargs.outputs.BUILD_FROM }}
+            BUILD_ARCH=${{ inputs.arch }}
+            ${{ steps.buildargs.outputs.BUILD_ARGS }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ inputs.addon }}-${{ inputs.arch }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.addon }}-${{ inputs.arch }}
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ inputs.arch }}"
+
+      - name: Upload digest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ inputs.addon }}-${{ inputs.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
 
       - name: Generate build summary
         if: github.event_name != 'pull_request'
@@ -99,4 +129,4 @@ jobs:
           echo "**Add-on:** ${{ inputs.addon }}" >> "$GITHUB_STEP_SUMMARY"
           echo "**Architecture:** ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
           echo "**Platform:** ${{ steps.platform.outputs.platform }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Image:** \`${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}:${{ inputs.arch }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
