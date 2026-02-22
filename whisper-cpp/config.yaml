@@ -1,0 +1,42 @@
+---
+version: 0.1.0
+slug: whisper-cpp
+name: Whisper.cpp
+description: >-
+  High-performance local speech-to-text server using OpenAI Whisper
+  models compiled to C++ for fast inference.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/whisper-cpp
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/whisper-cpp/{arch}-addon
+ingress: false
+init: false
+ports:
+  "8080/tcp": 8080
+ports_description:
+  "8080/tcp": Whisper.cpp API
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  model: base
+  language: en
+  data_dir: /share/whisper-models
+  log_level: info
+schema:
+  model: list(tiny|base|small|medium|large)
+  language: str
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: services
+stage: experimental

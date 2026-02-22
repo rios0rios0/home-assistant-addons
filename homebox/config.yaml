@@ -1,0 +1,37 @@
+---
+version: 0.1.0
+slug: homebox
+name: Homebox
+description: >-
+  Home inventory and asset management system. Track items, locations,
+  warranties, and maintenance schedules.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/homebox
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/homebox/{arch}-addon
+ingress: true
+ingress_port: 7745
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  data_dir: /share/homebox
+  timezone: Etc/UTC
+  log_level: info
+schema:
+  data_dir: str
+  timezone: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

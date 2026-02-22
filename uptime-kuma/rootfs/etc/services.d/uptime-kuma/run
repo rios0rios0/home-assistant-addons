@@ -1,0 +1,18 @@
+#!/usr/bin/with-contenv bashio
+
+declare data_dir
+declare log_level
+
+data_dir=$(bashio::config 'data_dir' '/share/uptime-kuma')
+log_level=$(bashio::config 'log_level' 'info')
+
+export UPTIME_KUMA_PORT=3001
+export DATA_DIR="${data_dir}"
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Uptime Kuma..."
+bashio::log.info "Data Dir: ${data_dir}"
+
+cd /app || exit 1
+exec node server/server.js --data-dir="${data_dir}"

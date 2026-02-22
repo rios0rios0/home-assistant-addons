@@ -1,0 +1,23 @@
+#!/usr/bin/with-contenv bashio
+
+declare data_dir
+declare timezone
+declare log_level
+
+data_dir=$(bashio::config 'data_dir' '/share/homebox')
+timezone=$(bashio::config 'timezone' 'Etc/UTC')
+log_level=$(bashio::config 'log_level' 'info')
+
+export HBOX_STORAGE_DATA="${data_dir}"
+export HBOX_STORAGE_SQLITE_URL="${data_dir}/homebox.db?_pragma=busy_timeout=999&_pragma=journal_mode=WAL"
+export HBOX_WEB_PORT=7745
+export TZ="${timezone}"
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Homebox..."
+bashio::log.info "Data Dir: ${data_dir}"
+bashio::log.info "Timezone: ${timezone}"
+
+cd /app || exit 1
+exec ./homebox

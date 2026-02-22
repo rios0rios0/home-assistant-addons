@@ -1,0 +1,40 @@
+---
+version: 0.1.0
+slug: open-webui
+name: Open WebUI
+description: >-
+  Feature-rich web UI for interacting with large language models. Pairs
+  naturally with the Ollama Container add-on as a chat frontend.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/open-webui
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/open-webui/{arch}-addon
+ingress: true
+ingress_port: 8080
+ingress_stream: true
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  ollama_base_url: "http://localhost:11434"
+  openai_api_key: ""
+  data_dir: /share/open-webui
+  log_level: info
+schema:
+  ollama_base_url: str
+  openai_api_key: str?
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

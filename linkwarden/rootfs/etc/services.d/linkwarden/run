@@ -1,0 +1,34 @@
+#!/usr/bin/with-contenv bashio
+
+declare nextauth_secret
+declare database_url
+declare data_dir
+declare log_level
+
+nextauth_secret=$(bashio::config 'nextauth_secret')
+database_url=$(bashio::config 'database_url')
+data_dir=$(bashio::config 'data_dir' '/share/linkwarden')
+log_level=$(bashio::config 'log_level' 'info')
+
+export NEXTAUTH_SECRET="${nextauth_secret}"
+export DATABASE_URL="${database_url}"
+export NEXTAUTH_URL="http://localhost:3000/api/v1/auth"
+export STORAGE_FOLDER="${data_dir}"
+export PORT=3000
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Linkwarden..."
+bashio::log.info "Data Dir: ${data_dir}"
+
+if [ -z "${nextauth_secret}" ]; then
+    bashio::log.error "NEXTAUTH_SECRET is not set! Please configure it."
+    exit 1
+fi
+if [ -z "${database_url}" ]; then
+    bashio::log.error "DATABASE_URL is not set! Provide a PostgreSQL connection string."
+    exit 1
+fi
+
+cd /app || exit 1
+exec node server.js

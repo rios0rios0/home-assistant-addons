@@ -1,0 +1,30 @@
+#!/usr/bin/with-contenv bashio
+
+declare threads
+declare context_size
+declare default_model
+declare models_dir
+declare log_level
+
+threads=$(bashio::config 'threads' '4')
+context_size=$(bashio::config 'context_size' '512')
+default_model=$(bashio::config 'default_model')
+models_dir=$(bashio::config 'models_dir' '/share/localai/models')
+log_level=$(bashio::config 'log_level' 'info')
+
+export THREADS="${threads}"
+export CONTEXT_SIZE="${context_size}"
+export MODELS_PATH="${models_dir}"
+
+mkdir -p "${models_dir}"
+
+bashio::log.info "Starting LocalAI..."
+bashio::log.info "Threads: ${threads}"
+bashio::log.info "Context Size: ${context_size}"
+bashio::log.info "Models Dir: ${models_dir}"
+
+exec local-ai run \
+    --address ":8080" \
+    --threads "${threads}" \
+    --context-size "${context_size}" \
+    --models-path "${models_dir}"

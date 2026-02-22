@@ -1,0 +1,114 @@
+---
+name: Build Add-on
+
+on:
+  workflow_call:
+    inputs:
+      addon:
+        description: "Add-on folder name"
+        required: true
+        type: string
+      arch:
+        description: "Architecture (aarch64, armv7, amd64)"
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: Build ${{ inputs.addon }} (${{ inputs.arch }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm,amd64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Map architecture to Docker platform
+        id: platform
+        run: |
+          case "${{ inputs.arch }}" in
+            aarch64) echo "platform=linux/arm64" >> "$GITHUB_OUTPUT" ;;
+            armv7)   echo "platform=linux/arm/v7" >> "$GITHUB_OUTPUT" ;;
+            amd64)   echo "platform=linux/amd64" >> "$GITHUB_OUTPUT" ;;
+            *)       echo "::error::Unknown architecture: ${{ inputs.arch }}"; exit 1 ;;
+          esac
+
+      - name: Parse build args from build.yaml
+        id: buildargs
+        run: |
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+          BUILD_YAML="${{ inputs.addon }}/build.yaml"
+
+          BASE_IMAGE=$(yq eval '.build_from.${{ inputs.arch }}' "$BUILD_YAML")
+          echo "BUILD_FROM=${BASE_IMAGE}" >> "$GITHUB_OUTPUT"
+
+          # Extract all args dynamically as multi-line build-args string
+          {
+            echo "BUILD_ARGS<<EOF"
+            yq eval '.args | to_entries | .[] | .key + "=" + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Build configuration:"
+          echo "  BUILD_FROM: ${BASE_IMAGE}"
+          yq eval '.args | to_entries | .[] | "  " + .key + ": " + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}/${{ inputs.arch }}-addon
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ inputs.addon }}
+          platforms: ${{ steps.platform.outputs.platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            BUILD_FROM=${{ steps.buildargs.outputs.BUILD_FROM }}
+            BUILD_ARCH=${{ inputs.arch }}
+            ${{ steps.buildargs.outputs.BUILD_ARGS }}
+          cache-from: type=gha,scope=${{ inputs.addon }}-${{ inputs.arch }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.addon }}-${{ inputs.arch }}
+
+      - name: Generate build summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## Build Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Add-on:** ${{ inputs.addon }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Architecture:** ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Platform:** ${{ steps.platform.outputs.platform }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}/${{ inputs.arch }}-addon\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"

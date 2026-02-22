@@ -1,0 +1,39 @@
+---
+version: 0.1.0
+slug: stirling-pdf
+name: Stirling PDF
+description: >-
+  Self-hosted PDF manipulation toolkit. Merge, split, convert, compress,
+  OCR, and more.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/stirling-pdf
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/stirling-pdf/{arch}-addon
+ingress: true
+ingress_port: 8080
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  enable_login: false
+  default_locale: en-US
+  max_file_size: 2000
+  log_level: info
+schema:
+  enable_login: bool
+  default_locale: str
+  max_file_size: int
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

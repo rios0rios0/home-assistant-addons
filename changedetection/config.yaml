@@ -1,0 +1,42 @@
+---
+version: 0.1.0
+slug: changedetection
+name: Changedetection.io
+description: >-
+  Website change detection and notification service. Monitors web pages
+  for content changes and triggers alerts.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/changedetection
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/changedetection/{arch}-addon
+ingress: true
+ingress_port: 5000
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  base_url: ""
+  notification_url: ""
+  fetch_workers: 2
+  data_dir: /share/changedetection
+  log_level: info
+schema:
+  base_url: str?
+  notification_url: str?
+  fetch_workers: int
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: services
+stage: experimental

@@ -1,0 +1,28 @@
+#!/usr/bin/with-contenv bashio
+
+declare ollama_base_url
+declare openai_api_key
+declare data_dir
+declare log_level
+
+ollama_base_url=$(bashio::config 'ollama_base_url')
+openai_api_key=$(bashio::config 'openai_api_key')
+data_dir=$(bashio::config 'data_dir' '/share/open-webui')
+log_level=$(bashio::config 'log_level' 'info')
+
+export OLLAMA_BASE_URL="${ollama_base_url}"
+export DATA_DIR="${data_dir}"
+export PORT=8080
+
+if bashio::var.has_value "${openai_api_key}"; then
+    export OPENAI_API_KEY="${openai_api_key}"
+fi
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Open WebUI..."
+bashio::log.info "Ollama URL: ${ollama_base_url}"
+bashio::log.info "Data Dir: ${data_dir}"
+
+cd /app/backend || exit 1
+exec python3 -m open_webui.main

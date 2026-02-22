@@ -1,0 +1,28 @@
+#!/usr/bin/with-contenv bashio
+
+declare webhook_url
+declare timezone
+declare data_dir
+declare log_level
+
+webhook_url=$(bashio::config 'webhook_url')
+timezone=$(bashio::config 'timezone' 'Etc/UTC')
+data_dir=$(bashio::config 'data_dir' '/share/n8n')
+log_level=$(bashio::config 'log_level' 'info')
+
+export N8N_PORT=5678
+export N8N_USER_FOLDER="${data_dir}"
+export GENERIC_TIMEZONE="${timezone}"
+export TZ="${timezone}"
+
+if bashio::var.has_value "${webhook_url}"; then
+    export WEBHOOK_URL="${webhook_url}"
+fi
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting n8n..."
+bashio::log.info "Data Dir: ${data_dir}"
+bashio::log.info "Timezone: ${timezone}"
+
+exec n8n start

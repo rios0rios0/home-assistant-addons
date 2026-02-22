@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant IT Tools - Finish Script
+# ==============================================================================
+
+bashio::log.info "Stopping IT Tools..."

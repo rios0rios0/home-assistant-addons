@@ -1,0 +1,34 @@
+#!/usr/bin/with-contenv bashio
+
+declare base_url
+declare allow_signup
+declare timezone
+declare max_workers
+declare data_dir
+declare log_level
+
+base_url=$(bashio::config 'base_url')
+allow_signup=$(bashio::config 'allow_signup')
+timezone=$(bashio::config 'timezone' 'Etc/UTC')
+max_workers=$(bashio::config 'max_workers' '1')
+data_dir=$(bashio::config 'data_dir' '/share/mealie')
+log_level=$(bashio::config 'log_level' 'info')
+
+export ALLOW_SIGNUP="${allow_signup}"
+export TZ="${timezone}"
+export MAX_WORKERS="${max_workers}"
+export API_PORT=9000
+
+if bashio::var.has_value "${base_url}"; then
+    export BASE_URL="${base_url}"
+fi
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Mealie..."
+bashio::log.info "Data Dir: ${data_dir}"
+bashio::log.info "Allow Signup: ${allow_signup}"
+bashio::log.info "Timezone: ${timezone}"
+
+cd /app || exit 1
+exec python3 -m mealie.app

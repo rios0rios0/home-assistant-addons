@@ -1,0 +1,44 @@
+---
+version: 0.1.0
+slug: localai
+name: LocalAI
+description: >-
+  Drop-in OpenAI API replacement that runs LLMs, image generation,
+  audio transcription, and embeddings locally.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/localai
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/localai/{arch}-addon
+ingress: false
+init: false
+ports:
+  "8080/tcp": 8080
+ports_description:
+  "8080/tcp": LocalAI OpenAI-compatible API
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  threads: 4
+  context_size: 512
+  default_model: ""
+  models_dir: /share/localai/models
+  log_level: info
+schema:
+  threads: int
+  context_size: int
+  default_model: str?
+  models_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

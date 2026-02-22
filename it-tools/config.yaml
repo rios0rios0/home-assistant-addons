@@ -1,0 +1,29 @@
+---
+version: 0.1.0
+slug: it-tools
+name: IT Tools
+description: >-
+  Collection of 80+ developer and sysadmin utilities including encoders,
+  converters, generators, and network tools.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/it-tools
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/it-tools/{arch}-addon
+ingress: true
+ingress_port: 8080
+init: false
+options:
+  log_level: info
+schema:
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

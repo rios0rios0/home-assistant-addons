@@ -1,0 +1,22 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant IT Tools
+# ==============================================================================
+
+bashio::log.info "Starting IT Tools..."
+
+# Configure nginx
+mkdir -p /run/nginx
+cat > /etc/nginx/http.d/default.conf <<'EOF'
+server {
+    listen 8080;
+    root /var/www/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+EOF
+
+exec nginx -g "daemon off;"

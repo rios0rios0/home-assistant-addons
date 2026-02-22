@@ -1,0 +1,46 @@
+---
+version: 0.1.0
+slug: ntfy
+name: Ntfy
+description: >-
+  Simple HTTP-based push notification server. Send notifications to
+  phones and desktops via PUT/POST requests.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/ntfy
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/ntfy/{arch}-addon
+ingress: true
+ingress_port: 8080
+init: false
+ports:
+  "8080/tcp": 8080
+ports_description:
+  "8080/tcp": Ntfy HTTP API
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  base_url: ""
+  behind_proxy: true
+  auth_default_access: read-write
+  cache_duration: 12h
+  log_level: info
+schema:
+  base_url: str?
+  behind_proxy: bool
+  auth_default_access: list(read-write|read-only|write-only|deny)?
+  cache_duration: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: services
+stage: experimental

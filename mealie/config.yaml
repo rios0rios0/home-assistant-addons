@@ -1,0 +1,43 @@
+---
+version: 0.1.0
+slug: mealie
+name: Mealie
+description: >-
+  Recipe manager, meal planner, and shopping list with auto-import
+  from recipe websites.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/mealie
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/mealie/{arch}-addon
+ingress: true
+ingress_port: 9000
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  base_url: ""
+  allow_signup: true
+  timezone: Etc/UTC
+  max_workers: 1
+  data_dir: /share/mealie
+  log_level: info
+schema:
+  base_url: str?
+  allow_signup: bool
+  timezone: str
+  max_workers: int
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

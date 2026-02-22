@@ -1,0 +1,32 @@
+#!/usr/bin/with-contenv bashio
+
+declare model
+declare language
+declare data_dir
+declare log_level
+
+model=$(bashio::config 'model' 'base')
+language=$(bashio::config 'language' 'en')
+data_dir=$(bashio::config 'data_dir' '/share/whisper-models')
+log_level=$(bashio::config 'log_level' 'info')
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Whisper.cpp..."
+bashio::log.info "Model: ${model}"
+bashio::log.info "Language: ${language}"
+
+# Download model if not present
+model_file="${data_dir}/ggml-${model}.bin"
+if [ ! -f "${model_file}" ]; then
+    bashio::log.info "Downloading model: ${model}..."
+    curl -L -f -o "${model_file}" \
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${model}.bin"
+fi
+
+cd /app || exit 1
+exec ./server \
+    --model "${model_file}" \
+    --language "${language}" \
+    --port 8080 \
+    --host 0.0.0.0

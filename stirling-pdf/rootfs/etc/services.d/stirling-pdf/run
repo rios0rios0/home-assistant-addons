@@ -1,0 +1,27 @@
+#!/usr/bin/with-contenv bashio
+
+declare enable_login
+declare default_locale
+declare max_file_size
+declare log_level
+
+enable_login=$(bashio::config 'enable_login')
+default_locale=$(bashio::config 'default_locale' 'en-US')
+max_file_size=$(bashio::config 'max_file_size' '2000')
+log_level=$(bashio::config 'log_level' 'info')
+
+export SECURITY_ENABLELOGIN="${enable_login}"
+export SYSTEM_DEFAULTLOCALE="${default_locale}"
+export SYSTEM_MAXFILESIZE="${max_file_size}"
+export SYSTEM_GOOGLEVISIBILITY=false
+export HOME=/root
+
+mkdir -p /share/stirling-pdf/configs /share/stirling-pdf/logs
+
+bashio::log.info "Starting Stirling PDF..."
+bashio::log.info "Login Enabled: ${enable_login}"
+bashio::log.info "Locale: ${default_locale}"
+bashio::log.info "Max File Size: ${max_file_size}MB"
+
+cd /app || exit 1
+exec java -jar stirling-pdf.jar

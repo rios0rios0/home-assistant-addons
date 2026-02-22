@@ -1,0 +1,44 @@
+#!/usr/bin/with-contenv bashio
+
+declare app_secret_token
+declare timezone
+declare invitation_code
+declare smtp_domain
+declare smtp_server
+declare smtp_port
+declare smtp_user_name
+declare smtp_password
+declare log_level
+
+app_secret_token=$(bashio::config 'app_secret_token')
+timezone=$(bashio::config 'timezone' 'Etc/UTC')
+invitation_code=$(bashio::config 'invitation_code')
+smtp_domain=$(bashio::config 'smtp_domain')
+smtp_server=$(bashio::config 'smtp_server')
+smtp_port=$(bashio::config 'smtp_port' '587')
+smtp_user_name=$(bashio::config 'smtp_user_name')
+smtp_password=$(bashio::config 'smtp_password')
+log_level=$(bashio::config 'log_level' 'info')
+
+export APP_SECRET_TOKEN="${app_secret_token}"
+export TIMEZONE="${timezone}"
+export PORT=3000
+export DATABASE_ADAPTER=mysql2
+
+if bashio::var.has_value "${invitation_code}"; then
+    export INVITATION_CODE="${invitation_code}"
+fi
+if bashio::var.has_value "${smtp_domain}"; then
+    export SMTP_DOMAIN="${smtp_domain}"
+    export SMTP_SERVER="${smtp_server}"
+    export SMTP_PORT="${smtp_port}"
+    export SMTP_USER_NAME="${smtp_user_name}"
+    export SMTP_PASSWORD="${smtp_password}"
+    export SEND_EMAIL_IN_DEVELOPMENT=true
+fi
+
+bashio::log.info "Starting Huginn..."
+bashio::log.info "Timezone: ${timezone}"
+
+cd /app || exit 1
+exec bundle exec rails server -p 3000 -b 0.0.0.0

@@ -1,0 +1,46 @@
+---
+version: 0.1.0
+slug: piper-tts
+name: Piper TTS
+description: >-
+  Fast, local neural text-to-speech engine with support for many
+  languages and voices. Wyoming protocol compatible.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/piper-tts
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/piper-tts/{arch}-addon
+ingress: false
+init: false
+ports:
+  "10200/tcp": 10200
+ports_description:
+  "10200/tcp": Wyoming TTS Protocol
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  piper_voice: en_US-lessac-medium
+  piper_length: "1.0"
+  piper_noise: "0.667"
+  piper_speaker: 0
+  data_dir: /share/piper-tts
+  log_level: info
+schema:
+  piper_voice: str
+  piper_length: str
+  piper_noise: str
+  piper_speaker: int
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: services
+stage: experimental

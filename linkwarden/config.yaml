@@ -1,0 +1,40 @@
+---
+version: 0.1.0
+slug: linkwarden
+name: Linkwarden
+description: >-
+  Self-hosted bookmark and link manager with archiving, tagging,
+  and collaboration features.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/linkwarden
+arch:
+  - aarch64
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/linkwarden/{arch}-addon
+ingress: true
+ingress_port: 3000
+ingress_stream: true
+init: false
+map:
+  - type: addon_config
+    read_only: false
+  - type: share
+    read_only: false
+options:
+  nextauth_secret: ""
+  database_url: ""
+  data_dir: /share/linkwarden
+  log_level: info
+schema:
+  nextauth_secret: str
+  database_url: str
+  data_dir: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

@@ -1,0 +1,33 @@
+#!/usr/bin/with-contenv bashio
+
+declare base_url
+declare behind_proxy
+declare auth_default_access
+declare cache_duration
+declare log_level
+
+base_url=$(bashio::config 'base_url')
+behind_proxy=$(bashio::config 'behind_proxy')
+auth_default_access=$(bashio::config 'auth_default_access' 'read-write')
+cache_duration=$(bashio::config 'cache_duration' '12h')
+log_level=$(bashio::config 'log_level' 'info')
+
+mkdir -p /share/ntfy/cache /share/ntfy/etc
+
+cat > /share/ntfy/etc/server.yml <<EOF
+listen-http: ":8080"
+cache-file: "/share/ntfy/cache/cache.db"
+behind-proxy: ${behind_proxy}
+auth-default-access: "${auth_default_access}"
+cache-duration: "${cache_duration}"
+EOF
+
+if bashio::var.has_value "${base_url}"; then
+    echo "base-url: \"${base_url}\"" >> /share/ntfy/etc/server.yml
+fi
+
+bashio::log.info "Starting Ntfy..."
+bashio::log.info "Behind Proxy: ${behind_proxy}"
+bashio::log.info "Auth Default Access: ${auth_default_access}"
+
+exec ntfy serve --config /share/ntfy/etc/server.yml

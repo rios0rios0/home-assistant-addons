@@ -1,0 +1,34 @@
+---
+version: 0.1.0
+slug: grocy
+name: Grocy
+description: >-
+  ERP-style household management for groceries, chores, and batteries
+  with barcode scanning support.
+url: >-
+  https://github.com/rios0rios0/home-assistant-addons/tree/main/grocy
+arch:
+  - aarch64
+  - armv7
+  - amd64
+discovery: []
+hassio_api: false
+homeassistant: 2024.6.0
+host_ipc: false
+host_network: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/grocy/{arch}-addon
+ingress: true
+ingress_port: 9283
+init: false
+map:
+  - type: addon_config
+    read_only: false
+options:
+  timezone: Etc/UTC
+  log_level: info
+schema:
+  timezone: str
+  log_level: list(verbose|debug|info|warning|error|critical)?
+startup: application
+stage: experimental

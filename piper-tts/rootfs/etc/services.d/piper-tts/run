@@ -1,0 +1,38 @@
+#!/usr/bin/with-contenv bashio
+
+declare piper_voice
+declare piper_length
+declare piper_noise
+declare piper_speaker
+declare data_dir
+declare log_level
+
+piper_voice=$(bashio::config 'piper_voice' 'en_US-lessac-medium')
+piper_length=$(bashio::config 'piper_length' '1.0')
+piper_noise=$(bashio::config 'piper_noise' '0.667')
+piper_speaker=$(bashio::config 'piper_speaker' '0')
+data_dir=$(bashio::config 'data_dir' '/share/piper-tts')
+log_level=$(bashio::config 'log_level' 'info')
+
+export PIPER_VOICE="${piper_voice}"
+export PIPER_LENGTH="${piper_length}"
+export PIPER_NOISE="${piper_noise}"
+export PIPER_SPEAKER="${piper_speaker}"
+
+mkdir -p "${data_dir}"
+
+bashio::log.info "Starting Piper TTS..."
+bashio::log.info "Voice: ${piper_voice}"
+bashio::log.info "Length Scale: ${piper_length}"
+bashio::log.info "Noise Scale: ${piper_noise}"
+
+cd /app || exit 1
+exec python3 -m wyoming_piper \
+    --piper /app/piper \
+    --voice "${piper_voice}" \
+    --length-scale "${piper_length}" \
+    --noise-scale "${piper_noise}" \
+    --speaker "${piper_speaker}" \
+    --data-dir "${data_dir}" \
+    --download-dir "${data_dir}" \
+    --uri "tcp://0.0.0.0:10200"
