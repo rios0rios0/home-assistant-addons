@@ -17,7 +17,7 @@ homeassistant: 2024.6.0
 host_ipc: false
 host_network: false
 host_dbus: false
-image: ghcr.io/rios0rios0/home-assistant-addons/changedetection/{arch}-addon
+image: ghcr.io/rios0rios0/home-assistant-addons/changedetection
 ingress: true
 ingress_port: 5000
 init: false

@@ -24,6 +24,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+      addons: ${{ steps.set-matrix.outputs.addons }}
 
     steps:
       - name: Checkout code
@@ -50,7 +51,7 @@ jobs:
             else
               CHANGED_ADDONS="$ALL_ADDONS"
             fi
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/* || "${{ github.ref }}" == "refs/heads/main" ]]; then
             CHANGED_ADDONS="$ALL_ADDONS"
           else
             # Determine base commit for diff
@@ -82,12 +83,28 @@ jobs:
           # Build the matrix JSON from changed add-ons and their architectures
           MATRIX='{"include":['
           FIRST=true
+          ADDONS_JSON='['
+          ADDONS_FIRST=true
+          SEEN_ADDONS=""
           for addon in $CHANGED_ADDONS; do
             [ -z "$addon" ] && continue
             if [ ! -f "${addon}/config.yaml" ]; then
               echo "::warning::Add-on '${addon}' not found, skipping"
               continue
             fi
+
+            # Collect unique addon names for the manifest job
+            if ! echo "$SEEN_ADDONS" | grep -q "^${addon}$"; then
+              SEEN_ADDONS="${SEEN_ADDONS}${addon}
+          "
+              if [ "$ADDONS_FIRST" = true ]; then
+                ADDONS_FIRST=false
+              else
+                ADDONS_JSON="${ADDONS_JSON},"
+              fi
+              ADDONS_JSON="${ADDONS_JSON}\"${addon}\""
+            fi
+
             ARCHS=$(yq eval '.arch[]' "${addon}/config.yaml")
             for arch in $ARCHS; do
               if [ "$FIRST" = true ]; then
@@ -99,19 +116,25 @@ jobs:
             done
           done
           MATRIX="${MATRIX}]}"
+          ADDONS_JSON="${ADDONS_JSON}]"
 
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+          echo "addons=${ADDONS_JSON}" >> "$GITHUB_OUTPUT"
           if [ "$FIRST" = true ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No add-on changes detected"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Matrix: ${MATRIX}"
+            echo "Addons: ${ADDONS_JSON}"
           fi
 
   build:
     needs: detect-changes
     if: needs.detect-changes.outputs.has_changes == 'true'
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
@@ -120,3 +143,68 @@ jobs:
       addon: ${{ matrix.addon }}
       arch: ${{ matrix.arch }}
     secrets: inherit
+
+  manifest:
+    name: Create manifest (${{ matrix.addon }})
+    needs: [detect-changes, build]
+    if: github.event_name != 'pull_request' && needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ${{ fromJson(needs.detect-changes.outputs.addons) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create multi-arch manifest
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
+          VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
+          ARCHS=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml")
+
+          # Build the list of arch-specific source images
+          SOURCES=""
+          for arch in $ARCHS; do
+            SOURCES="${SOURCES} ${IMAGE}:${arch}"
+          done
+
+          echo "Creating manifest for ${IMAGE}"
+          echo "  Version: ${VERSION}"
+          echo "  Sources:${SOURCES}"
+
+          # Create manifest tagged as the addon version
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            ${SOURCES}
+
+      - name: Generate manifest summary
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
+          VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
+
+          echo "## Manifest Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Add-on:** ${{ matrix.addon }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Image:** \`${IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Tags:** \`${VERSION}\`, \`latest\`" >> "$GITHUB_STEP_SUMMARY"

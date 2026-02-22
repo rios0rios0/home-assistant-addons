@@ -76,25 +76,14 @@ jobs:
           echo "  BUILD_FROM: ${BASE_IMAGE}"
           yq eval '.args | to_entries | .[] | "  " + .key + ": " + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}/${{ inputs.arch }}-addon
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: ./${{ inputs.addon }}
           platforms: ${{ steps.platform.outputs.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}:${{ inputs.arch }}
+          provenance: false
           build-args: |
             BUILD_FROM=${{ steps.buildargs.outputs.BUILD_FROM }}
             BUILD_ARCH=${{ inputs.arch }}
@@ -110,5 +99,4 @@ jobs:
           echo "**Add-on:** ${{ inputs.addon }}" >> "$GITHUB_STEP_SUMMARY"
           echo "**Architecture:** ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
           echo "**Platform:** ${{ steps.platform.outputs.platform }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Image:** \`${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}/${{ inputs.arch }}-addon\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ github.repository }}/${{ inputs.addon }}:${{ inputs.arch }}\`" >> "$GITHUB_STEP_SUMMARY"

@@ -17,7 +17,7 @@ homeassistant: 2024.6.0
 host_ipc: false
 host_network: false
 host_dbus: false
-image: ghcr.io/rios0rios0/home-assistant-addons/grocy/{arch}-addon
+image: ghcr.io/rios0rios0/home-assistant-addons/grocy
 ingress: true
 ingress_port: 9283
 init: false

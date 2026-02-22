@@ -16,7 +16,7 @@ homeassistant: 2024.6.0
 host_ipc: false
 host_network: false
 host_dbus: false
-image: ghcr.io/rios0rios0/home-assistant-addons/stirling-pdf/{arch}-addon
+image: ghcr.io/rios0rios0/home-assistant-addons/stirling-pdf
 ingress: true
 ingress_port: 8080
 init: false
