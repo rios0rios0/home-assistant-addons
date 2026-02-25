@@ -1,6 +1,10 @@
-# Home Assistant Add-ons by rios0rios0
-
-![Project Maintenance](https://img.shields.io/badge/maintainer-rios0rios0-blue.svg)
+<h1 align="center">Home Assistant Add-ons</h1>
+<p align="center">
+    <a href="https://github.com/rios0rios0/home-assistant-addons/releases/latest">
+        <img src="https://img.shields.io/github/release/rios0rios0/home-assistant-addons.svg?style=for-the-badge&logo=github" alt="Latest Release"/></a>
+    <a href="https://github.com/rios0rios0/home-assistant-addons/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/rios0rios0/home-assistant-addons.svg?style=for-the-badge&logo=github" alt="License"/></a>
+</p>
 
 A curated collection of 19 Home Assistant add-ons providing AI/ML services, productivity tools, monitoring, notifications, and household management. All add-ons are containerized and built for multiple architectures.
 
@@ -71,9 +75,9 @@ All add-ons support **amd64** and **aarch64**. The following also support **armv
 
 - Changedetection.io, Grocy, IT Tools, MCP Server Extended, Ntfy, Ollama Container
 
-## Support
+## Contributing
 
-If you encounter any issues or have feature requests, please open an issue on the [GitHub repository](https://github.com/rios0rios0/home-assistant-addons/issues).
+Contributions are welcome. Please open an issue or submit a pull request on the [GitHub repository](https://github.com/rios0rios0/home-assistant-addons/issues).
 
 ## License
 
