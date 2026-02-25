@@ -10,6 +10,8 @@
         <img src="https://img.shields.io/sonar/coverage/rios0rios0_home-assistant-addons?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud" alt="Coverage"/></a>
     <a href="https://sonarcloud.io/summary/overall?id=rios0rios0_home-assistant-addons">
         <img src="https://img.shields.io/sonar/quality_gate/rios0rios0_home-assistant-addons?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud" alt="Quality Gate"/></a>
+    <a href="https://www.bestpractices.dev/projects/12026">
+        <img src="https://img.shields.io/cii/level/12026?style=for-the-badge&logo=opensourceinitiative" alt="OpenSSF Best Practices"/></a>
 </p>
 
 A curated collection of 19 Home Assistant add-ons providing AI/ML services, productivity tools, monitoring, notifications, and household management. All add-ons are containerized and built for multiple architectures.
