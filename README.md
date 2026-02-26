@@ -85,7 +85,7 @@ All add-ons support **amd64** and **aarch64**. The following also support **armv
 
 ## Contributing
 
-Contributions are welcome. Please open an issue or submit a pull request on the [GitHub repository](https://github.com/rios0rios0/home-assistant-addons/issues).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
