@@ -19,7 +19,6 @@ ARG \
     BASHIO_VERSION \
     TEMPIO_VERSION \
     S6_OVERLAY_VERSION \
-    NODE_VERSION \
     OPENCLAW_VERSION
 
 # Base system
@@ -65,15 +64,9 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-# Install Node.js from official distribution
+# Install Node.js and OpenClaw
 RUN set -x \
-    && if [ "${BUILD_ARCH}" = "amd64" ]; then \
-           export NODE_ARCH="x64"; \
-       elif [ "${BUILD_ARCH}" = "aarch64" ]; then \
-           export NODE_ARCH="arm64"; \
-       fi \
-    && curl -L -f -s "https://nodejs.org/dist/v${NODE_VERSION}.0.0/node-v${NODE_VERSION}.0.0-linux-${NODE_ARCH}.tar.xz" \
-       | tar Jxf - --strip-components=1 -C /usr/local/ \
+    && apk add --no-cache nodejs npm \
     && npm install -g "openclaw@${OPENCLAW_VERSION}" \
     && npm cache clean --force
 

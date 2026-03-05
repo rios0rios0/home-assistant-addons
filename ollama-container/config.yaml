@@ -9,7 +9,6 @@ url: >-
   https://github.com/rios0rios0/home-assistant-addons/tree/main/ollama-container
 arch:
   - aarch64
-  - armv7
   - amd64
 discovery: []
 hassio_api: false

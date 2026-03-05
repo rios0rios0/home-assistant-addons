@@ -61,7 +61,7 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-COPY --from=app-source /data/app /app
+COPY --from=app-source /data /app
 
 WORKDIR /root
 ENTRYPOINT ["/init"]
