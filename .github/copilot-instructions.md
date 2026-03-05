@@ -4,79 +4,110 @@ This document provides guidance for GitHub Copilot when working on this reposito
 
 ## Repository Overview
 
-This is a **Home Assistant add-ons repository** that provides modular, containerized services for Home Assistant. The repository currently contains two add-ons:
+This is a **Home Assistant add-ons repository** that provides modular, containerized services for Home Assistant. The repository contains 19 add-ons across six categories:
 
-1. **MCP Server Extended** - Model Context Protocol server for extended Home Assistant automation management
-2. **Ollama Container** - Ollama integration for local AI capabilities
+- **AI & Machine Learning**: `mcp-server-extended`, `ollama-container`, `open-webui`, `localai`, `opencode`, `openclaw`
+- **Voice & Speech**: `piper-tts`, `whisper-cpp`
+- **Automation & Workflows**: `n8n`, `huginn`, `changedetection`
+- **Monitoring & Notifications**: `uptime-kuma`, `ntfy`
+- **Productivity & Utilities**: `stirling-pdf`, `it-tools`, `linkwarden`
+- **Household Management**: `mealie`, `grocy`, `homebox`
+
+Two add-ons are marked **stable** (`mcp-server-extended`, `ollama-container`); all others are **experimental**.
 
 ## Repository Structure
 
 ```
 home-assistant-addons/
 ├── .github/
-│   ├── copilot-instructions.md   # This file
+│   ├── copilot-instructions.md     # This file
 │   └── workflows/
-│       └── build.yaml            # CI/CD pipeline for Docker builds
-├── mcp-server-extended/          # MCP Server Extended add-on
-│   ├── config.yaml               # Add-on configuration (Home Assistant format)
-│   ├── build.yaml                # Build configuration for architectures
-│   ├── Dockerfile                # Container build instructions
-│   ├── build.sh                  # Local build script
-│   ├── pyproject.toml            # Python project configuration (PDM)
-│   ├── pdm.lock                  # Locked dependencies
-│   ├── config_example.json       # MCP client configuration example
-│   ├── CHANGELOG.md              # Version history
-│   ├── README.md                 # Add-on documentation
-│   ├── rootfs/                   # S6 overlay filesystem
-│   │   └── etc/services.d/
-│   │       └── mcp-server-extended/
-│   │           ├── run           # Service startup script
-│   │           └── finish        # Service shutdown script
-│   ├── src/
-│   │   └── mcp_ha_extended/      # Python package
-│   │       ├── __init__.py
-│   │       └── server.py         # Main MCP server implementation
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   ├── test_server.py        # Server tests (pytest)
-│   │   └── manual_test_api.py    # Manual testing utilities
-│   └── .docs/                    # Comprehensive documentation
-│       ├── SUMMARY.md            # Documentation index
-│       ├── QUICK_START.md        # 5-minute setup guide
-│       ├── SETUP.md              # Detailed setup
-│       ├── USAGE_EXAMPLES.md     # Code examples
-│       ├── IMPLEMENTATION_GUIDE.md
-│       ├── PDM_SETUP.md
-│       ├── ADDON_INSTALLATION.md
-│       ├── ADDON_STRUCTURE.md
-│       ├── ADDON_BUILD.md
-│       └── ADDON_SETUP_SUMMARY.md
-├── ollama-container/             # Ollama Container add-on
-│   ├── config.json               # Add-on configuration
-│   └── README.md                 # Add-on documentation
-├── repository.json               # Repository metadata (Home Assistant format)
-├── README.md                     # Main repository documentation
-├── LICENSE                       # MIT License
-└── .gitignore                    # Git ignore rules
+│       ├── build.yaml              # CI/CD pipeline (change detection + manifest creation)
+│       └── _build-addon.yaml       # Reusable per-arch build workflow
+├── <addon-name>/                   # One directory per add-on (19 total)
+│   ├── config.yaml                 # Add-on metadata (name, version, arch, options…)
+│   ├── build.yaml                  # Base images per architecture + build args
+│   ├── Dockerfile                  # Multi-arch container with S6 overlay, Bashio, Tempio
+│   ├── rootfs/                     # Files overlaid onto the container filesystem
+│   │   └── etc/services.d/<slug>/
+│   │       ├── run                 # S6 service startup script
+│   │       └── finish              # S6 service finish script
+│   └── README.md                   # Add-on documentation
+├── mcp-server-extended/            # Python add-on (additional files)
+│   ├── pyproject.toml              # Python project config (PDM)
+│   ├── pdm.lock                    # Locked dependencies
+│   ├── src/mcp_ha_extended/        # Python package source
+│   ├── tests/                      # pytest test suite
+│   └── .docs/                      # Extended documentation
+├── ADDON_IDEAS.md                  # Backlog of potential future add-ons
+├── CONTRIBUTING.md                 # Contribution guidelines
+├── repository.json                 # Repository metadata (Home Assistant format)
+├── README.md                       # Main repository documentation
+├── LICENSE                         # MIT License
+└── .gitignore                      # Git ignore rules
 ```
 
 ## Home Assistant Add-on Conventions
 
 ### Configuration Files
 
-Each add-on directory must contain a configuration file (`config.yaml` or `config.json`) following the Home Assistant add-on specification:
+Each add-on directory must contain a `config.yaml` file following the Home Assistant add-on specification:
 
 - **Required fields**: `name`, `version`, `slug`, `description`, `arch`, `url`, `startup`
-- **Optional fields**: `boot`, `options`, `schema`, `ports`, `environment`, etc.
-- **Version format**: Semantic versioning (e.g., "0.1.0")
-- **Supported architectures**: `amd64`, `aarch64`, `armhf`, `armv7`
+- **Common optional fields**: `hassio_api`, `homeassistant`, `host_ipc`, `host_network`, `host_dbus`, `image`, `ingress`, `ingress_port`, `ingress_stream`, `init`, `map`, `options`, `schema`, `ports`, `ports_description`, `stage`
+- **Version format**: Semantic versioning (e.g., `1.0.0`)
+- **Supported architectures**: `amd64`, `aarch64`, `armv7` (all add-ons support amd64 and aarch64; six also support armv7)
 - **Startup types**: `application`, `services`, `system`, `once`
+- **Stage values**: `stable`, `experimental` (default to `experimental` for new add-ons)
+- **Minimum HA version**: All add-ons require `homeassistant: 2024.6.0`
+
+Example `config.yaml`:
+```yaml
+version: "1.0.0"
+slug: my-addon
+name: My Add-on
+description: Short description of the add-on
+url: https://github.com/rios0rios0/home-assistant-addons/tree/main/my-addon
+arch:
+  - amd64
+  - aarch64
+homeassistant: 2024.6.0
+hassio_api: false
+host_network: false
+host_ipc: false
+host_dbus: false
+image: ghcr.io/rios0rios0/home-assistant-addons/my-addon
+ingress: true
+ingress_port: 8080
+init: false
+startup: application
+stage: experimental
+options:
+  my_option: default_value
+schema:
+  my_option: str
+```
+
+### Build Configuration (`build.yaml`)
+
+Each add-on must have a `build.yaml` file specifying architecture-specific base images and standard build arguments:
+
+```yaml
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base:latest
+  amd64: ghcr.io/home-assistant/amd64-base:latest
+  armv7: ghcr.io/home-assistant/armv7-base:latest
+args:
+  BASHIO_VERSION: 0.17.1
+  TEMPIO_VERSION: 2024.11.2
+  S6_OVERLAY_VERSION: 3.1.6.2
+```
 
 ### Add-on Documentation (`README.md`)
 
 Each add-on should have comprehensive documentation including:
 
-- Version and architecture badges
+- Version and architecture badges (shields.io, `style=for-the-badge`)
 - About section describing the add-on
 - Features list
 - Installation instructions
@@ -111,9 +142,8 @@ The root `repository.json` file contains:
 - **NEVER** use `pip install -r requirements.txt` (no requirements.txt exists)
 
 ### Testing
-- Framework: **pytest** with **pytest-asyncio**
+- Framework: **pytest** with **pytest-asyncio** (`asyncio_mode = "auto"` — no `@pytest.mark.asyncio` decorator needed)
 - Run tests: `pdm run pytest` or `pdm run test`
-- All async functions must use `@pytest.mark.asyncio` decorator
 - Mock external API calls (Home Assistant) using `unittest.mock`
 
 ### Code Quality
@@ -199,7 +229,6 @@ Tool(
 - Example pattern:
   ```python
   class TestFeature:
-      @pytest.mark.asyncio
       async def test_function_name(self):
           with patch("mcp_ha_extended.server.HA_TOKEN", "test_token"):
               mock_response = AsyncMock()
@@ -223,17 +252,33 @@ Tool(
 ### Home Assistant Addon
 - Configuration: `config.yaml`
 - Startup scripts: `rootfs/etc/services.d/mcp-server-extended/`
-- Published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/mcp-server-extended/{arch}-addon`
+- Published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/mcp-server-extended`
 
 ## Common Tasks
 
 ### Adding a New Add-on
 
 1. Create a new directory with a descriptive slug name (lowercase, hyphens)
-2. Create `config.yaml` or `config.json` with required fields
-3. Create `README.md` with comprehensive documentation
-4. Add entry to main repository `README.md`
-5. Ensure consistency with existing add-ons
+2. Add the standard files: `Dockerfile`, `config.yaml`, `build.yaml`, `rootfs/`, `README.md`
+3. Use the standard build args in `build.yaml` (see `build.yaml` for current `BASHIO_VERSION`, `TEMPIO_VERSION`, and `S6_OVERLAY_VERSION` values)
+4. Build locally to verify (replace version values with those from the add-on's `build.yaml`):
+   ```bash
+   docker build \
+     --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest \
+     --build-arg BASHIO_VERSION=<BASHIO_VERSION> \
+     --build-arg TEMPIO_VERSION=<TEMPIO_VERSION> \
+     --build-arg S6_OVERLAY_VERSION=<S6_OVERLAY_VERSION> \
+     --build-arg BUILD_ARCH=amd64 \
+     -t local/<addon-name>:test \
+     ./<addon-name>
+   ```
+5. Validate the configuration:
+   ```bash
+   yq eval '.version' <addon-name>/config.yaml
+   yq eval '.arch[]' <addon-name>/config.yaml
+   ```
+6. Add an entry to the main repository `README.md`
+7. Ensure consistency with existing add-ons
 
 ### Adding a New MCP Tool
 
@@ -268,11 +313,25 @@ Tool(
 
 ## CI/CD
 
-- GitHub Actions builds Docker images on push to main/master
-- Multi-architecture builds run in parallel
-- Images tagged with branch name, version, and `latest`
-- Only triggers on changes to `mcp-server-extended/` directory
-- Automated testing should be added before merging breaking changes
+GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`), on pull requests targeting `main`, and on manual dispatch.
+
+### Workflow Architecture
+
+- **`build.yaml`** — Orchestration workflow with three jobs:
+  1. **`detect-changes`**: Discovers which add-ons changed (via `git diff`), reads their supported architectures from `config.yaml`, and produces a build matrix. On pushes to `main` or tags, all add-ons are rebuilt. If any file under `.github/workflows/` changes, all add-ons are rebuilt.
+  2. **`build`**: Fans out to the reusable `_build-addon.yaml` workflow for each `{addon, arch}` pair in the matrix.
+  3. **`manifest`**: Creates multi-arch manifests after all `build` jobs succeed (skipped for PRs). Tags images with the version from `config.yaml` and `latest`.
+
+- **`_build-addon.yaml`** — Reusable per-arch build workflow. Steps: checkout → QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
+
+### Registry
+
+Images are published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/<addon-name>`
+
+### Image Tags
+
+- `<version>` (from `config.yaml`)
+- `latest`
 
 ## Best Practices
 
