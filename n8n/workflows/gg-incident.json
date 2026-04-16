@@ -1,0 +1,89 @@
+{
+  "name": "GitGuardian Incident -> Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gg-incident",
+        "responseMode": "onReceived",
+        "responseCode": 204,
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "0e8f2f50-5b9a-4a1a-9c28-9d9f1c1d0001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "gg-incident",
+      "notes": "GitGuardian posts here. Copy the Production URL shown by n8n and paste it into GitGuardian -> Settings -> Alerting -> Custom Webhook."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map GitGuardian webhook payload to a Telegram-friendly Markdown message.\n// Reference: https://docs.gitguardian.com/api-reference/webhooks/payload\n// Works for both 'incident.created' and 'incident.resolved' event types.\n\nconst input = $input.first().json;\nlet body = input.body ?? input.rawBody ?? input;\n\nif (typeof body === 'string') {\n  try {\n    body = JSON.parse(body);\n  } catch (error) {\n    body = input;\n  }\n}\n\nconst event = body.event || 'incident';\nconst incident = body.incident || body;\nconst secret = incident.secret_type || incident.detector?.display_name || 'unknown';\nconst severity = incident.severity || 'unknown';\nconst status = incident.status || 'triggered';\nconst source = incident.source?.full_name || incident.source?.name || incident.source_name || 'unknown';\nconst url = incident.incident_url || incident.gitguardian_url || 'https://dashboard.gitguardian.com/';\n\nconst emoji = status === 'resolved' ? '\\u2705' : '\\ud83d\\udea8';\nconst title = status === 'resolved' ? 'Incident resolved' : 'GitGuardian incident';\n\nconst text = [\n  emoji + ' *' + title + '*',\n  'Secret: `' + secret + '`',\n  'Severity: ' + severity,\n  'Repo: `' + source + '`',\n  'Event: `' + event + '`',\n  '[Open in GitGuardian](' + url + ')'\n].join('\\n');\n\nreturn [{ json: { text } }];"
+      },
+      "id": "0e8f2f50-5b9a-4a1a-9c28-9d9f1c1d0002",
+      "name": "Format message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "notes": "Defensive: unwraps either { body: {...} } or the incident object directly, since the payload shape depends on event type."
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "disable_web_page_preview": false
+        }
+      },
+      "id": "0e8f2f50-5b9a-4a1a-9c28-9d9f1c1d0003",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [680, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Telegram bot (rios0rios0 notifier)"
+        }
+      },
+      "notes": "Edit chatId after import: paste the numeric chat ID from https://api.telegram.org/bot<TOKEN>/getUpdates (result[0].message.chat.id). Credential is the 'Telegram API' type holding only the bot token."
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format message": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "gitguardian"
+    }
+  ]
+}

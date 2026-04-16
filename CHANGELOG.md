@@ -18,6 +18,8 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ### Added
 
+- added `n8n/workflows/gg-incident.json` and companion `README.md` -- importable n8n workflow that receives GitGuardian webhook incidents and forwards them to Telegram via a bot
+
 ### Changed
 
 ### Removed
