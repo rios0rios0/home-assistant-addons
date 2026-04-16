@@ -13,10 +13,10 @@ and sends it to a Telegram chat via a bot.
 
 1. Open n8n (Home Assistant ingress: `Settings > Add-ons > n8n > Open Web UI`).
 2. `Workflows` > menu > `Import from File` -> pick `gg-incident.json`.
-3. Fill in the three placeholders:
+3. Set up the Telegram node and fill in the two workflow placeholders:
    - **Telegram credential** -- `Credentials` > `New` > `Telegram API`, paste
-     the bot token from `@BotFather`. Assign it to the `Send to Telegram`
-     node.
+     the bot token from `@BotFather`, then assign that credential to the
+     `Send to Telegram` node.
    - **`chatId`** -- open
      `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser after
      sending `/start` to your bot, copy `result[0].message.chat.id`, and
@@ -26,6 +26,29 @@ and sends it to a Telegram chat via a bot.
 5. Toggle the workflow **Active**.
 6. Copy the `Production URL` of the webhook and paste it into
    `dashboard.gitguardian.com > Settings > Alerting > Add Custom Webhook`.
+   **Note:** GitGuardian must be able to reach this URL from outside your
+   Home Assistant instance. If the generated `Production URL` is not publicly
+   reachable, set the add-on `webhook_url` option to your public n8n base URL
+   (this sets `WEBHOOK_URL` in the container) or otherwise expose n8n
+   externally.
+
+### Hardening
+
+The webhook node is unauthenticated by default, which is fine on a trusted
+LAN but risky once the `Production URL` is exposed externally. Before
+publishing the URL, open the `Webhook` node and set `Authentication` to
+one of:
+
+- **Header Auth** / **Basic Auth** -- generate a long random secret, add it
+  to the Telegram-facing node, and configure GitGuardian to send the
+  matching header (see
+  `dashboard.gitguardian.com > Settings > Alerting > Add Custom Webhook >
+  Custom Headers`).
+- **JWT Auth** -- if you already manage JWTs for your n8n instance.
+
+Anyone who discovers an unauthenticated `Production URL` can trigger
+Telegram messages through your bot, so do not skip this step for
+internet-facing deployments.
 
 ### Payload assumptions
 
