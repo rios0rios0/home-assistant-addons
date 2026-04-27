@@ -20,13 +20,15 @@ The only add-on that ships its own application code. It's a Python `3.10+` packa
 
 ## CI/CD Architecture
 
-Two workflows in `.github/workflows/`:
+Four workflows in `.github/workflows/`:
 
 - **`build.yaml`** — orchestrator. Three jobs:
   1. `detect-changes`: discovers all `config.yaml` files (depth 2), computes the changed subset via `git diff` against the base SHA, reads each add-on's `arch[]` list, and emits a `{addon, arch}` build matrix. Pushes to `main`, tag pushes, and any change under `.github/workflows/` rebuild **all** add-ons.
   2. `build`: fans out to the reusable workflow per `{addon, arch}` pair.
   3. `manifest`: after all arch builds land, stitches per-arch digests into a multi-arch manifest and tags it as both the `config.yaml` version and `latest`. Skipped on PRs.
 - **`_build-addon.yaml`** — reusable per-arch build (checkout, QEMU, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push.
+- **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
+- **`claude-code-review.yaml`** — automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
 
 ## Common Commands
 
