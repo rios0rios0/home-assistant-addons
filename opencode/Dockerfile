@@ -67,14 +67,15 @@ RUN set -x \
     && rm -rf /usr/src/bashio
 
 # Install OpenCode binary
+# Asset names follow `opencode-linux-<arch>.tar.gz` where <arch> is x86_64 or arm64.
 RUN set -x \
     && if [ "${BUILD_ARCH}" = "amd64" ]; then \
            export OC_ARCH="x86_64"; \
        elif [ "${BUILD_ARCH}" = "aarch64" ]; then \
-           export OC_ARCH="aarch64"; \
+           export OC_ARCH="arm64"; \
        fi \
     && curl -L -f -s -o /tmp/opencode.tar.gz \
-         "https://github.com/opencode-ai/opencode/releases/download/v${OPENCODE_VERSION}/opencode_Linux_${OC_ARCH}.tar.gz" \
+         "https://github.com/opencode-ai/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-${OC_ARCH}.tar.gz" \
     && tar xzf /tmp/opencode.tar.gz -C /usr/bin/ opencode \
     && chmod a+x /usr/bin/opencode \
     && rm /tmp/opencode.tar.gz

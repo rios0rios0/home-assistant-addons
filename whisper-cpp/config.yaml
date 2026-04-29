@@ -8,7 +8,6 @@ description: >-
 url: >-
   https://github.com/rios0rios0/home-assistant-addons/tree/main/whisper-cpp
 arch:
-  - aarch64
   - amd64
 discovery: []
 hassio_api: false
