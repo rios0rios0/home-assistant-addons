@@ -16,6 +16,16 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ## [Unreleased]
 
+### Fixed
+
+- repaired the `Build and Push Docker Images` workflow, which had been failing on every commit since 2026-04-17:
+  - dropped `aarch64` from `whisper-cpp/config.yaml` (`ghcr.io/ggml-org/whisper.cpp:main` only publishes an `amd64` manifest)
+  - dropped `armv7` from `ollama-container/config.yaml` (`ollama/ollama:latest` does not publish an `armv7` manifest — Ollama supports `amd64` and `aarch64` only)
+  - dropped `armv7` from `it-tools/config.yaml` (`corentinth/it-tools:latest` does not publish an `armv7` manifest)
+  - dropped `armv7` from `grocy/config.yaml` (`lscr.io/linuxserver/grocy:latest` does not publish an `armv7` manifest)
+  - bumped `opencode/build.yaml` `OPENCODE_VERSION` from `0.1.0` (does not exist) to `0.0.55` (latest published release)
+  - corrected `opencode/Dockerfile` release asset URL pattern from `opencode_Linux_${OC_ARCH}.tar.gz` to `opencode-linux-${OC_ARCH}.tar.gz` (upstream renamed assets) and remapped `aarch64` → `arm64` to match the new asset naming
+
 ## [0.2.1] - 2026-04-28
 
 ### Changed
