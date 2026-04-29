@@ -1,5 +1,9 @@
 ARG BUILD_FROM
-FROM lscr.io/linuxserver/grocy:latest AS app-source
+# Only `/app/www` (Grocy's PHP sources and web assets) is copied out of this
+# stage — interpreted code, not native binaries; PHP itself is installed by
+# `apk` in the runtime stage below. Pinning to the builder's platform keeps
+# armv7 buildable even though upstream publishes amd64/arm64 manifests only.
+FROM --platform=${BUILDPLATFORM} lscr.io/linuxserver/grocy:latest AS app-source
 
 FROM ${BUILD_FROM}
 

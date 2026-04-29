@@ -7,9 +7,10 @@ description: >-
   customization of large language models for local AI capabilities.
 url: >-
   https://github.com/rios0rios0/home-assistant-addons/tree/main/ollama-container
+# No armv7: Ollama is 64-bit only. Upstream publishes no armv7 image manifest
+# and no 32-bit ARM release archive, so there is nothing to build or copy from.
 arch:
   - aarch64
-  - armv7
   - amd64
 discovery: []
 hassio_api: false

@@ -61,7 +61,11 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-COPY --from=app-source /data/app /app
+# Upstream's `WORKDIR` is `/data` and the application is laid out directly
+# under it (`apps/web`, `apps/worker`, `packages/prisma`, `node_modules`).
+# There is no `/data/app` subdirectory — copying it is what made every build
+# fail with `"/data/app": not found`.
+COPY --from=app-source /data /app
 
 WORKDIR /root
 ENTRYPOINT ["/init"]

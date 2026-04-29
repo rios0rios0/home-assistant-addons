@@ -31,4 +31,14 @@ if [ -z "${database_url}" ]; then
 fi
 
 cd /app || exit 1
-exec node server.js
+
+# Linkwarden is a monorepo, not a single entrypoint script: the published image
+# runs a Prisma migration and then supervises the Next.js web app and the worker
+# together. This mirrors upstream's own container command.
+export PATH="/app/node_modules/.bin:${PATH}"
+
+prisma migrate deploy --schema=/app/packages/prisma/schema.prisma
+
+exec concurrently -k -n web,worker \
+    "cd /app/apps/web && exec next start" \
+    "cd /app/apps/worker && exec tsx worker.ts"
