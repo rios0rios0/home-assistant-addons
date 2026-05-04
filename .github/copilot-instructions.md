@@ -325,6 +325,7 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
 - **`_build-addon.yaml`** — Reusable per-arch build workflow. Steps: checkout → QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
 - **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`claude-code-review.yaml`** — Automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
+- **`release.yaml`** — Triggered on pushes to `main`. Delegates to a reusable workflow in `rios0rios0/pipelines` to create Git tags from merged bump PRs.
 
 ### Registry
 
