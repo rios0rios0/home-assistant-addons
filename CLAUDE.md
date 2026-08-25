@@ -77,7 +77,7 @@ pdm run ruff check .        # lint
 - **Ingress**: most add-ons expose their UI via `ingress: true` + `ingress_port: <port>` rather than publishing host ports.
 - **`rootfs/etc/services.d/<slug>/run`**: the service script runs under S6; `#!/usr/bin/with-contenv bashio` + `bashio::config 'key'` is the standard pattern for reading user-provided options.
 - **Releases**: bump the add-on's `version` in `config.yaml` and any badge in its `README.md` together. The `manifest` job derives both the `<version>` and `latest` tags from `config.yaml`.
-- **Changelog**: the root `CHANGELOG.md` tracks repository-level changes under `[Unreleased]`; `mcp-server-extended/` keeps its own nested `CHANGELOG.md` for the Python package.
+- **Changelog**: the root `CHANGELOG.md` is generated and is not edited by hand -- a repository-level change writes its own fragment under `.changes/unreleased/` with `chlog new --kind <Kind> --body "..."` (see the chlog section below); `mcp-server-extended/` keeps its own nested `CHANGELOG.md` for the Python package.
 - **n8n workflows**: `n8n/workflows/*.json` are importable workflow definitions (not code the container runs). The add-on itself is an upstream-image wrapper; the JSON files are shipped for users to import into their n8n instance.
 
 ## YAML Conventions
@@ -89,3 +89,28 @@ pdm run ruff check .        # lint
 
 - **Per-arch base image pins in `build.yaml`**: changing `BASHIO_VERSION` / `TEMPIO_VERSION` / `S6_OVERLAY_VERSION` rebuilds all add-ons and shifts the runtime surface — do only when intentional.
 - **The `detect-changes` matrix logic**: any change under `.github/workflows/` triggers a full rebuild of all 19 add-ons.
+
+<!-- chlog:start -->
+## Changelog (chlog) — MANDATORY
+
+If the repository you are working in uses chlog (a `.chlog.yaml` or `.chlog.yml`
+config file, or a `.changes/` directory, exists at the project root), the
+following is binding and ALWAYS applies: whenever you make ANY change, you MUST
+create a changelog fragment as part of the same change — automatically, without
+being asked, before committing.
+
+- Do NOT edit CHANGELOG.md directly; it is generated from fragments.
+- Create the fragment with:
+  `chlog new --kind <Kind> --body "<imperative description>"`
+- Valid kinds: Added, Changed, Deprecated, Removed, Fixed, Security
+- Choose the kind that best matches the change (e.g., new feature → Added,
+  bug fix → Fixed, behavior change → Changed, removal → Removed, security fix → Security).
+- If the change is backward-INCOMPATIBLE with the public API (a breaking
+  change), you MUST add the `--breaking` flag:
+  `chlog new --kind <Kind> --breaking --body "<description>"`.
+  This is the ONLY thing that triggers a major version bump — the kind alone
+  never does (per SemVer, major = incompatible change). When unsure whether a
+  change breaks compatibility, ask the user instead of guessing.
+- Fragments are YAML files in `.changes/unreleased/`; stage them with your commit.
+- `chlog check` fails the build when a fragment is missing — never skip it.
+<!-- chlog:end -->
