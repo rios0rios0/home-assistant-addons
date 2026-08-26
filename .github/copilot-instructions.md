@@ -36,7 +36,7 @@ home-assistant-addons/
 ├── mcp-server-extended/            # Go add-on (additional files)
 │   ├── go.mod                      # Module path and dependencies
 │   ├── go.sum                      # Dependency checksums
-│   ├── .golangci.yml               # Linter configuration
+│   ├── .golangci.yaml               # Linter configuration
 │   ├── cmd/mcp-ha-extended/        # Entry point and Dig wiring
 │   ├── internal/domain/            # Entity and repository contract
 │   ├── internal/infrastructure/    # HA REST client, MCP controller
@@ -156,7 +156,7 @@ The root `repository.json` file contains:
 ### Code Quality
 - **gofmt**: Code formatter — `gofmt -l .` lists unformatted files
 - **go vet**: `go vet -tags unit ./...`
-- **golangci-lint**: Linter, configured in `.golangci.yml`
+- **golangci-lint**: Linter, configured in `.golangci.yaml`
 
 ## Coding Standards and Best Practices
 
@@ -367,7 +367,7 @@ Images are published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/<addon-n
 - **Package Manager**: Go modules
 - **Testing**: testify with in-memory doubles (avoid mocks)
 - **Formatting**: gofmt
-- **Linting**: golangci-lint (see `.golangci.yml`)
+- **Linting**: golangci-lint (see `.golangci.yaml`)
 - **Dependency Injection**: Dig, with a `container.go` per layer
 
 ## Support and Contribution

@@ -69,7 +69,7 @@ go test -tags unit ./...             # run the suite (the tag is required)
 go test -tags unit -run TestName ./... # single test
 go vet -tags unit ./...              # vet
 gofmt -l .                           # list unformatted files
-golangci-lint run                    # lint (see .golangci.yml)
+golangci-lint run                    # lint (see .golangci.yaml)
 ```
 
 `-tags unit` is not optional: every test file carries the build tag, so an untagged run reports "no test files" and passes without testing anything.

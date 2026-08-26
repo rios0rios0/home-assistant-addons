@@ -13,7 +13,13 @@ import (
 	"github.com/rios0rios0/home-assistant-addons/mcp-server-extended/internal/domain/entities"
 )
 
-const defaultTimeout = 30 * time.Second
+const (
+	defaultTimeout = 30 * time.Second
+
+	// automationsEndpoint is the collection path; per-automation paths are
+	// built from it so the literal lives in exactly one place.
+	automationsEndpoint = "/automation"
+)
 
 // HomeAssistantAutomationsRepository talks to Home Assistant's REST API.
 type HomeAssistantAutomationsRepository struct {
@@ -38,7 +44,7 @@ func NewHomeAssistantAutomationsRepository(baseURL, token string, client *http.C
 }
 
 func (r *HomeAssistantAutomationsRepository) List(ctx context.Context) ([]entities.Automation, error) {
-	raw, err := r.call(ctx, http.MethodGet, "/automation", nil)
+	raw, err := r.call(ctx, http.MethodGet, automationsEndpoint, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +64,7 @@ func (r *HomeAssistantAutomationsRepository) List(ctx context.Context) ([]entiti
 }
 
 func (r *HomeAssistantAutomationsRepository) Get(ctx context.Context, id string) (entities.Automation, error) {
-	raw, err := r.call(ctx, http.MethodGet, "/automation/"+id, nil)
+	raw, err := r.call(ctx, http.MethodGet, automationPath(id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +78,7 @@ func (r *HomeAssistantAutomationsRepository) Get(ctx context.Context, id string)
 }
 
 func (r *HomeAssistantAutomationsRepository) Insert(ctx context.Context, automation entities.Automation) (entities.Automation, error) {
-	raw, err := r.call(ctx, http.MethodPost, "/automation", automation)
+	raw, err := r.call(ctx, http.MethodPost, automationsEndpoint, automation)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +87,7 @@ func (r *HomeAssistantAutomationsRepository) Insert(ctx context.Context, automat
 }
 
 func (r *HomeAssistantAutomationsRepository) Update(ctx context.Context, id string, automation entities.Automation) (entities.Automation, error) {
-	raw, err := r.call(ctx, http.MethodPut, "/automation/"+id, automation)
+	raw, err := r.call(ctx, http.MethodPut, automationPath(id), automation)
 	if err != nil {
 		return nil, err
 	}
@@ -90,13 +96,13 @@ func (r *HomeAssistantAutomationsRepository) Update(ctx context.Context, id stri
 }
 
 func (r *HomeAssistantAutomationsRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.call(ctx, http.MethodDelete, "/automation/"+id, nil)
+	_, err := r.call(ctx, http.MethodDelete, automationPath(id), nil)
 
 	return err
 }
 
 func (r *HomeAssistantAutomationsRepository) Trigger(ctx context.Context, id string) error {
-	_, err := r.call(ctx, http.MethodPost, "/automation/"+id+"/trigger", nil)
+	_, err := r.call(ctx, http.MethodPost, automationPath(id)+"/trigger", nil)
 
 	return err
 }
@@ -170,4 +176,8 @@ func asAutomation(raw any) entities.Automation {
 	}
 
 	return entities.Automation{}
+}
+
+func automationPath(id string) string {
+	return automationsEndpoint + "/" + id
 }
