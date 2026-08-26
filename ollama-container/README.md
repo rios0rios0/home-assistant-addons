@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Supports amd64 Architecture](https://img.shields.io/badge/amd64-yes-green.svg)
 ![Supports aarch64 Architecture](https://img.shields.io/badge/aarch64-yes-green.svg)
-![Supports armv7 Architecture](https://img.shields.io/badge/armv7-yes-green.svg)
+![Supports armv7 Architecture](https://img.shields.io/badge/armv7-no-lightgrey.svg)
 
 ## About
 
@@ -16,7 +16,9 @@ Ollama integration for Home Assistant, providing easy deployment and customizati
 - **Multiple Model Support**: Compatible with various Ollama-supported models (Llama, Mistral, Gemma, etc.)
 - **Auto Model Pull**: Optionally configure a default model to be pulled on startup
 - **REST API**: Exposes the Ollama API on port 11434 for integration with other add-ons and services
-- **Multi-Architecture Support**: Compatible with amd64, aarch64, and armv7 platforms
+- **Multi-Architecture Support**: Compatible with amd64 and aarch64 platforms. Ollama
+  is 64-bit only — upstream publishes neither an `armv7` image manifest nor a 32-bit
+  ARM release archive — so armv7 cannot be supported by this add-on.
 
 ## Installation
 

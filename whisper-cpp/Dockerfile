@@ -1,5 +1,37 @@
 ARG BUILD_FROM
-FROM ghcr.io/ggml-org/whisper.cpp:main AS app-source
+
+# whisper.cpp is compiled here rather than copied out of
+# `ghcr.io/ggml-org/whisper.cpp:main`, because that image cannot serve this
+# add-on on any architecture: it publishes an `amd64` manifest only (so
+# `aarch64` had no image to copy from at all), and it is built on Ubuntu, so
+# its glibc-linked binaries cannot execute on the musl-based Home Assistant
+# bases even on `amd64`. Building against `${BUILD_FROM}` produces a binary
+# that matches both the architecture and the C library of the runtime stage.
+FROM ${BUILD_FROM} AS app-build
+
+ARG WHISPER_VERSION
+
+RUN set -x \
+    && apk add --no-cache \
+         build-base \
+         cmake \
+         git \
+    && git clone --depth 1 --branch "${WHISPER_VERSION}" \
+         https://github.com/ggml-org/whisper.cpp /usr/src/whisper.cpp \
+    && cmake -S /usr/src/whisper.cpp -B /usr/src/whisper.cpp/build \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DBUILD_SHARED_LIBS=OFF \
+         -DWHISPER_BUILD_TESTS=OFF \
+         -DWHISPER_BUILD_EXAMPLES=ON \
+         -DWHISPER_SDL2=OFF \
+    && cmake --build /usr/src/whisper.cpp/build \
+         --target whisper-server \
+         --config Release \
+         -j "$(nproc)" \
+    && mkdir -p /app \
+    && cp /usr/src/whisper.cpp/build/bin/whisper-server /app/whisper-server \
+    && strip /app/whisper-server \
+    && rm -rf /usr/src/whisper.cpp
 
 FROM ${BUILD_FROM}
 
@@ -24,6 +56,7 @@ ARG BUILD_ARCH
 
 RUN set -x \
     && apk add --no-cache \
+         libstdc++ \
          xz \
     && rm -rf /var/cache/apk/*
 
@@ -59,7 +92,7 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-COPY --from=app-source /app /app
+COPY --from=app-build /app /app
 
 WORKDIR /root
 ENTRYPOINT ["/init"]

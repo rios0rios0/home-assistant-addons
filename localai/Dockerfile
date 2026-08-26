@@ -59,7 +59,10 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-COPY --from=app-source /build/local-ai /usr/bin/local-ai
+# `/build/local-ai` is the path inside upstream's *builder* stage; the published
+# image copies the binary to its `WORKDIR` (`/`), so `/local-ai` is the path that
+# actually exists here.
+COPY --from=app-source /local-ai /usr/bin/local-ai
 
 WORKDIR /root
 ENTRYPOINT ["/init"]

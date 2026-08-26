@@ -24,8 +24,7 @@ if [ ! -f "${model_file}" ]; then
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${model}.bin"
 fi
 
-cd /app || exit 1
-exec ./server \
+exec /app/whisper-server \
     --model "${model_file}" \
     --language "${language}" \
     --port 8080 \

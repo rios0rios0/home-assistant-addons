@@ -56,7 +56,7 @@ Each add-on directory must contain a `config.yaml` file following the Home Assis
 - **Required fields**: `name`, `version`, `slug`, `description`, `arch`, `url`, `startup`
 - **Common optional fields**: `hassio_api`, `homeassistant`, `host_ipc`, `host_network`, `host_dbus`, `image`, `ingress`, `ingress_port`, `ingress_stream`, `init`, `map`, `options`, `schema`, `ports`, `ports_description`, `stage`
 - **Version format**: Semantic versioning (e.g., `1.0.0`)
-- **Supported architectures**: `amd64`, `aarch64`, `armv7` (all add-ons support amd64 and aarch64; six also support armv7)
+- **Supported architectures**: `amd64`, `aarch64`, `armv7` (all add-ons support amd64 and aarch64; several also support armv7). An upstream image without a manifest for a target architecture does not force dropping it: arch-neutral payloads are copied from a `FROM --platform=${BUILDPLATFORM}` stage, and native binaries are compiled from source against `${BUILD_FROM}`.
 - **Startup types**: `application`, `services`, `system`, `once`
 - **Stage values**: `stable`, `experimental` (default to `experimental` for new add-ons)
 - **Minimum HA version**: All add-ons require `homeassistant: 2024.6.0`
@@ -246,7 +246,7 @@ Tool(
 
 ### Multi-Architecture Support
 - Builds for: `aarch64`, `armv7`, `amd64`
-- Uses QEMU for cross-compilation
+- `aarch64` builds run natively on `ubuntu-24.04-arm`; `armv7` cross-builds on `ubuntu-latest` under QEMU. QEMU is registered only when the target platform differs from the runner's own.
 - Base images defined in `build.yaml`
 
 ### Home Assistant Addon
@@ -320,9 +320,9 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
 - **`build.yaml`** — Orchestration workflow with three jobs:
   1. **`detect-changes`**: Discovers which add-ons changed (via `git diff`), reads their supported architectures from `config.yaml`, and produces a build matrix. On pushes to `main` or tags, all add-ons are rebuilt. If any file under `.github/workflows/` changes, all add-ons are rebuilt.
   2. **`build`**: Fans out to the reusable `_build-addon.yaml` workflow for each `{addon, arch}` pair in the matrix.
-  3. **`manifest`**: Creates multi-arch manifests after all `build` jobs succeed (skipped for PRs). Tags images with the version from `config.yaml` and `latest`.
+  3. **`manifest`**: Creates multi-arch manifests (skipped for PRs). Tags images with the version from `config.yaml` and `latest`. Runs even when the build matrix reports failure and gates per add-on — an add-on publishes only when every architecture in its `arch[]` produced a digest — so one broken add-on blocks only itself and a partial architecture set is never published.
 
-- **`_build-addon.yaml`** — Reusable per-arch build workflow. Steps: checkout → QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
+- **`_build-addon.yaml`** — Reusable per-arch build workflow. Accepts a `runner` input so `aarch64` builds land on a native ARM runner. Steps: checkout → arch→platform mapping → conditional QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
 - **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`claude-code-review.yaml`** — Automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`release.yaml`** — Triggers on push to `main`. Delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.

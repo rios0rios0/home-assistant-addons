@@ -12,6 +12,14 @@ on:
         description: "Architecture (aarch64, armv7, amd64)"
         required: true
         type: string
+      runner:
+        description: >-
+          Runner label to build on. `aarch64` builds are dispatched to a native
+          ARM runner so they compile at full speed instead of under emulation;
+          everything else stays on x86 and reaches non-native targets via QEMU.
+        required: false
+        default: ubuntu-latest
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -19,7 +27,7 @@ env:
 jobs:
   build:
     name: Build ${{ inputs.addon }} (${{ inputs.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     permissions:
       contents: read
       packages: write
@@ -28,10 +36,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Map architecture to Docker platform
+        id: platform
+        run: |
+          RUNNER_PLATFORM="linux/$(dpkg --print-architecture)"
+
+          case "${{ inputs.arch }}" in
+            aarch64) PLATFORM="linux/arm64" ;;
+            armv7)   PLATFORM="linux/arm/v7" ;;
+            amd64)   PLATFORM="linux/amd64" ;;
+            *)       echo "::error::Unknown architecture: ${{ inputs.arch }}"; exit 1 ;;
+          esac
+
+          echo "platform=${PLATFORM}" >> "$GITHUB_OUTPUT"
+
+          # Emulation is only needed when the target does not match the runner.
+          # Registering the runner's own architecture is what produced the
+          # `cannot register "/usr/bin/qemu-x86_64"` noise in every build log.
+          if [ "${PLATFORM}" = "${RUNNER_PLATFORM}" ]; then
+            echo "qemu_platforms=" >> "$GITHUB_OUTPUT"
+            echo "Building ${PLATFORM} natively on ${RUNNER_PLATFORM}"
+          else
+            echo "qemu_platforms=${PLATFORM}" >> "$GITHUB_OUTPUT"
+            echo "Building ${PLATFORM} on ${RUNNER_PLATFORM} under QEMU"
+          fi
+
       - name: Set up QEMU
+        if: steps.platform.outputs.qemu_platforms != ''
         uses: docker/setup-qemu-action@v4
         with:
-          platforms: arm64,arm,amd64
+          platforms: ${{ steps.platform.outputs.qemu_platforms }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -44,37 +78,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Map architecture to Docker platform
-        id: platform
-        run: |
-          case "${{ inputs.arch }}" in
-            aarch64) echo "platform=linux/arm64" >> "$GITHUB_OUTPUT" ;;
-            armv7)   echo "platform=linux/arm/v7" >> "$GITHUB_OUTPUT" ;;
-            amd64)   echo "platform=linux/amd64" >> "$GITHUB_OUTPUT" ;;
-            *)       echo "::error::Unknown architecture: ${{ inputs.arch }}"; exit 1 ;;
-          esac
-
       - name: Parse build args from build.yaml
         id: buildargs
         run: |
-          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          YQ_ARCH=$(dpkg --print-architecture)
+          wget --https-only -qO /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}"
           chmod +x /usr/local/bin/yq
 
           BUILD_YAML="${{ inputs.addon }}/build.yaml"
+          ARCH="${{ inputs.arch }}"
 
-          BASE_IMAGE=$(yq eval '.build_from.${{ inputs.arch }}' "$BUILD_YAML")
+          BASE_IMAGE=$(yq eval ".build_from.\"${ARCH}\"" "$BUILD_YAML")
+          if [ -z "${BASE_IMAGE}" ] || [ "${BASE_IMAGE}" = "null" ]; then
+            echo "::error::${{ inputs.addon }}/build.yaml declares no build_from entry for '${ARCH}'"
+            exit 1
+          fi
           echo "BUILD_FROM=${BASE_IMAGE}" >> "$GITHUB_OUTPUT"
 
-          # Extract all args dynamically as multi-line build-args string
+          ARGS=$(yq eval \
+            '(.args // {}) | to_entries | .[] | .key + "=" + (.value | tostring)' \
+            "$BUILD_YAML")
+
           {
             echo "BUILD_ARGS<<EOF"
-            yq eval '.args | to_entries | .[] | .key + "=" + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
+            echo "${ARGS}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
           echo "Build configuration:"
           echo "  BUILD_FROM: ${BASE_IMAGE}"
-          yq eval '.args | to_entries | .[] | "  " + .key + ": " + (.value | tostring)' "$BUILD_YAML" 2>/dev/null || true
+          echo "${ARGS}" | sed 's/^/  /'
 
       - name: Build (PR validation)
         if: github.event_name == 'pull_request'

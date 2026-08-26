@@ -25,8 +25,8 @@ Five workflows in `.github/workflows/`:
 - **`build.yaml`** — orchestrator. Three jobs:
   1. `detect-changes`: discovers all `config.yaml` files (depth 2), computes the changed subset via `git diff` against the base SHA, reads each add-on's `arch[]` list, and emits a `{addon, arch}` build matrix. Pushes to `main`, tag pushes, and any change under `.github/workflows/` rebuild **all** add-ons.
   2. `build`: fans out to the reusable workflow per `{addon, arch}` pair.
-  3. `manifest`: after all arch builds land, stitches per-arch digests into a multi-arch manifest and tags it as both the `config.yaml` version and `latest`. Skipped on PRs.
-- **`_build-addon.yaml`** — reusable per-arch build (checkout, QEMU, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push.
+  3. `manifest`: stitches per-arch digests into a multi-arch manifest and tags it as both the `config.yaml` version and `latest`. Skipped on PRs. It runs even when the build matrix reports failure and gates per add-on: an add-on publishes only when every architecture in its `arch[]` produced a digest, and otherwise skips with a warning. One broken add-on therefore blocks only itself, and a partial architecture set is never published.
+- **`_build-addon.yaml`** — reusable per-arch build (checkout, arch→platform mapping, QEMU *only* when the target differs from the runner, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push. `aarch64` is dispatched to a native `ubuntu-24.04-arm` runner; `amd64` and `armv7` run on `ubuntu-latest`, the latter under QEMU because the ARM hosts do not execute 32-bit ARM.
 - **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`claude-code-review.yaml`** — automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`release.yaml`** — triggers on push to `main`, delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
@@ -72,7 +72,7 @@ pdm run ruff check .        # lint
 ## Conventions Specific to This Repo
 
 - **New add-ons default to `stage: experimental`** and `homeassistant: 2024.6.0`. Only promote to `stable` once proven.
-- **Architectures**: every add-on must support `amd64` and `aarch64`; `armv7` is optional and only added when the upstream image publishes an ARMv7 variant.
+- **Architectures**: every add-on must support `amd64` and `aarch64`; `armv7` is optional. A missing upstream manifest is *not* by itself a reason to drop an architecture — first check what is actually copied out of the upstream stage. If the payload is interpreted or static (PHP sources, a built SPA, JS assets), pin that stage with `FROM --platform=${BUILDPLATFORM}` and every architecture keeps working from the one manifest upstream does publish. If the payload is a native binary, either compile it in a builder stage from `${BUILD_FROM}` (see `whisper-cpp`) or fetch the upstream per-architecture release archive. Drop an architecture only when upstream genuinely has no build for it (see `ollama-container`, which is 64-bit only), and record why next to the `arch` list.
 - **S6 arch mapping** (in each `Dockerfile`): `armv7 → arm`, `i386 → i686`, `amd64 → x86_64`, `aarch64 → aarch64`. Preserve this mapping when copying patterns between add-ons.
 - **Ingress**: most add-ons expose their UI via `ingress: true` + `ingress_port: <port>` rather than publishing host ports.
 - **`rootfs/etc/services.d/<slug>/run`**: the service script runs under S6; `#!/usr/bin/with-contenv bashio` + `bashio::config 'key'` is the standard pattern for reading user-provided options.

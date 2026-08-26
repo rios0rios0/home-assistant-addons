@@ -1,5 +1,9 @@
 ARG BUILD_FROM
-FROM corentinth/it-tools:latest AS app-source
+# The payload copied out of this stage is the compiled Vue SPA (HTML/CSS/JS) —
+# no native code — so the stage is pinned to the builder's platform. Upstream
+# publishes amd64/arm64 only; without the pin, buildx resolves this stage for
+# the target platform and armv7 fails with "no match for platform in manifest".
+FROM --platform=${BUILDPLATFORM} corentinth/it-tools:latest AS app-source
 
 FROM ${BUILD_FROM}
 

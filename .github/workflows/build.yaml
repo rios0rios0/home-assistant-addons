@@ -34,7 +34,7 @@ jobs:
 
       - name: Install yq
         run: |
-          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          wget --https-only -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
       - name: Detect changes and build matrix
@@ -107,12 +107,22 @@ jobs:
 
             ARCHS=$(yq eval '.arch[]' "${addon}/config.yaml")
             for arch in $ARCHS; do
+              # aarch64 builds go to a native ARM runner: emulating arm64 on x86
+              # is roughly an order of magnitude slower, which matters most for
+              # the add-ons that compile from source. armv7 has no native runner
+              # (the ARM hosts do not execute 32-bit ARM), so it stays on x86
+              # under QEMU.
+              case "$arch" in
+                aarch64) runner="ubuntu-24.04-arm" ;;
+                *)       runner="ubuntu-latest" ;;
+              esac
+
               if [ "$FIRST" = true ]; then
                 FIRST=false
               else
                 MATRIX="${MATRIX},"
               fi
-              MATRIX="${MATRIX}{\"addon\":\"${addon}\",\"arch\":\"${arch}\"}"
+              MATRIX="${MATRIX}{\"addon\":\"${addon}\",\"arch\":\"${arch}\",\"runner\":\"${runner}\"}"
             done
           done
           MATRIX="${MATRIX}]}"
@@ -142,12 +152,24 @@ jobs:
     with:
       addon: ${{ matrix.addon }}
       arch: ${{ matrix.arch }}
+      runner: ${{ matrix.runner }}
     secrets: inherit
 
   manifest:
     name: Create manifest (${{ matrix.addon }})
     needs: [detect-changes, build]
-    if: github.event_name != 'pull_request' && needs.detect-changes.outputs.has_changes == 'true'
+    # `always()` deliberately breaks the all-or-nothing coupling to `build`:
+    # `build` is a single matrix job, so one add-on failing one architecture
+    # marked the whole job failed and skipped publishing for *every* add-on.
+    # Completeness is enforced per add-on instead — see the verify step below —
+    # so a broken add-on now blocks only itself. `build` failing still fails the
+    # run; this only decides what gets published.
+    if: >-
+      always()
+      && github.event_name != 'pull_request'
+      && needs.detect-changes.result == 'success'
+      && needs.detect-changes.outputs.has_changes == 'true'
+      && needs.build.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -155,7 +177,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        addon: ${{ fromJson(needs.detect-changes.outputs.addons) }}
+        # Falls back to an empty list because `always()` above means this job is
+        # evaluated even when `detect-changes` failed and produced no output.
+        addon: ${{ fromJson(needs.detect-changes.outputs.addons || '[]') }}
 
     steps:
       - name: Checkout code
@@ -163,10 +187,49 @@ jobs:
 
       - name: Install yq
         run: |
-          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          wget --https-only -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
+      - name: Download digests
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: digest-${{ matrix.addon }}-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Verify every declared architecture produced a digest
+        id: verify
+        run: |
+          # Each per-arch build uploads one digest file named after its
+          # architecture. Publishing a manifest built from a partial set would
+          # quietly ship an add-on missing an architecture and overwrite the
+          # `latest` tag with it, which is worse than not publishing at all —
+          # so an add-on publishes only when its set is complete.
+          EXPECTED=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml" | sort)
+          FOUND=$(ls -1 /tmp/digests 2>/dev/null | sort || true)
+          MISSING=$(comm -23 <(echo "${EXPECTED}") <(echo "${FOUND}") | tr '\n' ' ' | xargs || true)
+
+          echo "Expected architectures: $(echo "${EXPECTED}" | tr '\n' ' ')"
+          echo "Digests present:        $(echo "${FOUND}" | tr '\n' ' ')"
+
+          if [ -n "${MISSING}" ]; then
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Manifest skipped::${{ matrix.addon }} did not publish: no digest for ${MISSING}"
+            {
+              echo "## Manifest skipped: ${{ matrix.addon }}"
+              echo ""
+              echo "Missing architecture(s): \`${MISSING}\`"
+              echo ""
+              echo "The previously published tags are left untouched. Other add-ons are unaffected."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log in to GitHub Container Registry
+        if: steps.verify.outputs.complete == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -174,24 +237,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
+        if: steps.verify.outputs.complete == 'true'
         uses: docker/setup-buildx-action@v4
 
-      - name: Download digests
-        uses: actions/download-artifact@v8
-        with:
-          pattern: digest-${{ matrix.addon }}-*
-          path: /tmp/digests
-          merge-multiple: true
-
       - name: Create multi-arch manifest
+        if: steps.verify.outputs.complete == 'true'
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
           VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
 
-          # Build the list of digest-based source references
+          # Build the list of digest-based source references from the declared
+          # architectures rather than from whatever happens to be on disk, so
+          # the manifest contains exactly the set `config.yaml` promises and the
+          # set the verify step above checked.
           SOURCES=""
-          for f in /tmp/digests/*; do
-            digest=$(cat "$f")
+          for arch in $(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml"); do
+            digest=$(cat "/tmp/digests/${arch}")
             SOURCES="${SOURCES} ${IMAGE}@${digest}"
           done
 
@@ -205,6 +266,7 @@ jobs:
             ${SOURCES}
 
       - name: Generate manifest summary
+        if: steps.verify.outputs.complete == 'true'
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
           VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")

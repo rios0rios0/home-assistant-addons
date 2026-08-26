@@ -1,5 +1,8 @@
 ARG BUILD_FROM
-FROM docker.n8n.io/n8nio/n8n AS app-source
+# `docker.n8n.io` is a vanity mirror that rate-limits anonymous CI pulls and
+# answered `429 Too Many Requests` for every build. Docker Hub serves the same
+# image with the same `amd64`/`arm64` manifests and no such throttle.
+FROM n8nio/n8n:latest AS app-source
 
 FROM ${BUILD_FROM}
 

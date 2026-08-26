@@ -19,7 +19,6 @@ ARG \
     BASHIO_VERSION \
     TEMPIO_VERSION \
     S6_OVERLAY_VERSION \
-    NODE_VERSION \
     OPENCLAW_VERSION
 
 # Base system
@@ -65,17 +64,32 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-# Install Node.js from official distribution
+# Node.js comes from Alpine's repositories, not from nodejs.org. The official
+# tarballs are linked against glibc, and the Home Assistant bases are musl, so
+# the extracted `node` could not execute on any architecture: `amd64` failed
+# with `env: can't execute 'node'` and `aarch64` with
+# `Could not open '/lib/ld-linux-aarch64.so.1'` — both are the missing glibc
+# loader, not a missing binary.
+#
+# OpenClaw depends on native modules (`tree-sitter-bash` and friends) that ship
+# no prebuilt musl binaries, so `npm` falls back to compiling them with
+# `node-gyp`. That needs a toolchain and Python, which are installed as a
+# virtual package and dropped again once the install is done — `libstdc++` and
+# `libgcc` are installed separately so the compiled `.node` addons keep their
+# runtime libraries after `apk del`.
 RUN set -x \
-    && if [ "${BUILD_ARCH}" = "amd64" ]; then \
-           export NODE_ARCH="x64"; \
-       elif [ "${BUILD_ARCH}" = "aarch64" ]; then \
-           export NODE_ARCH="arm64"; \
-       fi \
-    && curl -L -f -s "https://nodejs.org/dist/v${NODE_VERSION}.0.0/node-v${NODE_VERSION}.0.0-linux-${NODE_ARCH}.tar.xz" \
-       | tar Jxf - --strip-components=1 -C /usr/local/ \
+    && apk add --no-cache \
+         nodejs \
+         npm \
+         libstdc++ \
+         libgcc \
+    && apk add --no-cache --virtual .native-build-deps \
+         build-base \
+         python3 \
     && npm install -g "openclaw@${OPENCLAW_VERSION}" \
-    && npm cache clean --force
+    && npm cache clean --force \
+    && apk del .native-build-deps \
+    && rm -rf /var/cache/apk/*
 
 # S6-Overlay
 WORKDIR /root
