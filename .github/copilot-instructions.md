@@ -56,6 +56,7 @@ Each add-on directory must contain a `config.yaml` file following the Home Assis
 - **Required fields**: `name`, `version`, `slug`, `description`, `arch`, `url`, `startup`
 - **Common optional fields**: `hassio_api`, `homeassistant`, `host_ipc`, `host_network`, `host_dbus`, `image`, `ingress`, `ingress_port`, `ingress_stream`, `init`, `map`, `options`, `schema`, `ports`, `ports_description`, `stage`
 - **Version format**: Semantic versioning (e.g., `1.0.0`)
+- **Security invariants**: downloads pass `--proto '=https' --proto-redir '=https'`; workflow context values reach `run:` scripts through `env:` rather than `${{ }}` interpolation; every `uses:` is pinned to a full commit SHA (Dependabot bumps them); reusable workflows receive only the secrets they declare.
 - **Supported architectures**: `amd64`, `aarch64`, `armv7` (all add-ons support amd64 and aarch64; several also support armv7). An upstream image without a manifest for a target architecture does not force dropping it: arch-neutral payloads are copied from a `FROM --platform=${BUILDPLATFORM}` stage, and native binaries are compiled from source against `${BUILD_FROM}`.
 - **Startup types**: `application`, `services`, `system`, `once`
 - **Stage values**: `stable`, `experimental` (default to `experimental` for new add-ons)

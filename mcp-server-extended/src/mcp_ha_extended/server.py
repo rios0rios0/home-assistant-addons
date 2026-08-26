@@ -15,13 +15,20 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-# Configuration
-HA_URL = os.getenv("HA_URL", "http://homeassistant.local:8123")
+# Configuration. HA_URL has no default: it used to fall back to
+# "http://homeassistant.local:8123", which hardcoded an unencrypted endpoint and
+# silently aimed requests — including the bearer token — at a guessed host when
+# the variable was missing. The add-on always supplies it from config.yaml, and
+# standalone users set it explicitly (see .docs/SETUP.md), so requiring it costs
+# nothing and turns a silent misconfiguration into a clear error.
+HA_URL = os.getenv("HA_URL", "")
 HA_TOKEN = os.getenv("HA_TOKEN", "")
 
 
-def _check_ha_token():
-    """Check if HA_TOKEN is set, raise error if not."""
+def _check_ha_config():
+    """Check that the Home Assistant URL and token are set, raise error if not."""
+    if not HA_URL:
+        raise ValueError("HA_URL environment variable must be set")
     if not HA_TOKEN:
         raise ValueError("HA_TOKEN environment variable must be set")
 
@@ -31,7 +38,7 @@ server = Server("home-assistant-automations")
 
 async def ha_api_call(method: str, endpoint: str, data: dict | None = None) -> dict:
     """Make an authenticated API call to Home Assistant."""
-    _check_ha_token()
+    _check_ha_config()
     url = f"{HA_URL}/api{endpoint}"
     headers = {
         "Authorization": f"Bearer {HA_TOKEN}",
@@ -291,7 +298,7 @@ async def call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
 
 async def main():
     """Run the MCP server."""
-    _check_ha_token()
+    _check_ha_config()
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
