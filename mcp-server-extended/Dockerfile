@@ -79,6 +79,14 @@ COPY src/ ./src/
 # `pdm` is pinned and restricted to wheels: an unpinned install resolves to
 # whatever is newest at build time, and a source distribution would execute
 # its own `setup.py` during the build.
+#
+# `msgpack` is the one exception. It reaches this tree through
+# `pdm -> hishel -> msgpack`, and it publishes musllinux wheels for aarch64,
+# x86_64 and riscv64 but none for armv7 — so under a blanket `--only-binary`
+# every `hishel` version becomes uninstallable and the armv7 build dies with
+# `ResolutionImpossible`. Allowing just this package to build from its sdist
+# keeps armv7 working (the toolchain above exists precisely for that) without
+# opening the whole dependency tree to arbitrary build-time code.
 RUN set -x \
     && apk add --no-cache --virtual .build-deps \
          cargo \
@@ -89,6 +97,7 @@ RUN set -x \
          python3-dev \
     && pip3 install --no-cache-dir --break-system-packages \
          --only-binary :all: \
+         --no-binary msgpack \
          pdm==2.28.2 \
     && pdm config python.use_venv false \
     && pdm install --prod --no-self \
