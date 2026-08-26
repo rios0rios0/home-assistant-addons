@@ -26,7 +26,7 @@ See [Addon Installation Guide](.docs/ADDON_INSTALLATION.md) for detailed instruc
 ### As a Standalone Binary
 
 1. Download dependencies: `go mod download`
-2. Build: `go build -o mcp-ha-extended ./cmd/mcp-ha-extended`
+2. Build: `CGO_ENABLED=0 go build -o mcp-ha-extended ./cmd/mcp-ha-extended`
 3. Set environment variables: `HA_URL` and `HA_TOKEN`
 4. Run: `./mcp-ha-extended`
 5. Configure your MCP client to point at the binary

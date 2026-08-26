@@ -12,10 +12,11 @@ Get automation management working in 5 minutes!
 
 ```bash
 cd mcp-server-extended
-go build -o mcp-ha-extended ./cmd/mcp-ha-extended
+CGO_ENABLED=0 go build -o mcp-ha-extended ./cmd/mcp-ha-extended
 ```
 
-That produces a single static binary with no runtime dependencies. To cross-compile
+`CGO_ENABLED=0` is what makes the result genuinely static; without it the toolchain
+may link against the host's C library. To cross-compile
 for another machine, set `GOOS`/`GOARCH`:
 
 ```bash

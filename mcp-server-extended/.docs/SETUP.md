@@ -13,10 +13,11 @@
 
 ```bash
 cd mcp-server-extended
-go build -o mcp-ha-extended ./cmd/mcp-ha-extended
+CGO_ENABLED=0 go build -o mcp-ha-extended ./cmd/mcp-ha-extended
 ```
 
-The result is a single static binary. Nothing else has to be installed on the
+`CGO_ENABLED=0` is what makes the result genuinely static — without it the
+toolchain may link against the host's C library. Nothing else has to be installed on the
 machine that runs it — there is no interpreter and no dependency tree.
 
 ## Step 3: Configure Environment

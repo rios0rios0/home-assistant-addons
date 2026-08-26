@@ -179,7 +179,12 @@ func main() {
 			continue
 		}
 
-		id, _ := automation.ID().(string)
+		// An id is not guaranteed to be a string; skip anything else rather
+		// than calling Get/Update with an empty id.
+		id, ok := automation.ID().(string)
+		if !ok || id == "" {
+			continue
+		}
 
 		// Read the automation back before writing: enabling is a
 		// read-modify-write, and the rest of the body has to survive it.
