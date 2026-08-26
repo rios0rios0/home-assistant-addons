@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now raises `ValueError: HA_URL environment variable must be set`.
 - renamed the internal `_check_ha_token` guard to `_check_ha_config`, which now validates both
   `HA_URL` and `HA_TOKEN`
+- added an autouse `ha_url` fixture to the test suite, since `HA_URL` no longer has a default and the
+  existing tests patch only `HA_TOKEN`; added a test covering the missing-`HA_URL` error
 
 ## [0.1.0] - 2024-01-XX
 

@@ -18,6 +18,19 @@ from mcp_ha_extended.server import (
 )
 
 
+@pytest.fixture(autouse=True)
+def ha_url():
+    """Give every test a valid HA_URL.
+
+    HA_URL has no default and is validated on each API call, so without this the
+    URL check fails before a test reaches the behaviour it is exercising. Tests
+    that specifically exercise a missing URL patch it themselves; the inner
+    patch wins over this one.
+    """
+    with patch("mcp_ha_extended.server.HA_URL", "http://test.local:8123"):
+        yield
+
+
 class TestHAAPICall:
     """Test the ha_api_call function."""
 
@@ -85,6 +98,13 @@ class TestHAAPICall:
         """Test API call without token raises error."""
         with patch("mcp_ha_extended.server.HA_TOKEN", ""):
             with pytest.raises(ValueError, match="HA_TOKEN"):
+                await ha_api_call("GET", "/test")
+
+    @pytest.mark.asyncio
+    async def test_ha_api_call_no_url(self):
+        """Test API call without URL raises error."""
+        with patch("mcp_ha_extended.server.HA_URL", ""):
+            with pytest.raises(ValueError, match="HA_URL"):
                 await ha_api_call("GET", "/test")
 
     @pytest.mark.asyncio
