@@ -80,6 +80,11 @@ pdm run ruff check .        # lint
 - **Changelog**: the root `CHANGELOG.md` is generated and is not edited by hand -- a repository-level change writes its own fragment under `.changes/unreleased/` with `chlog new --kind <Kind> --body "..."` (see the chlog section below); `mcp-server-extended/` keeps its own nested `CHANGELOG.md` for the Python package.
 - **n8n workflows**: `n8n/workflows/*.json` are importable workflow definitions (not code the container runs). The add-on itself is an upstream-image wrapper; the JSON files are shipped for users to import into their n8n instance.
 
+- **Downloads**: every `curl` in a `Dockerfile` and every download in a workflow passes `--proto '=https' --proto-redir '=https'`, so neither the request nor any redirect hop can fall back to plain HTTP. Copy the flags when adding a new download.
+- **Workflow inputs**: never interpolate `${{ ... }}` directly into a `run:` script. Pass the value through `env:` and read it as a shell variable — `inputs.addon` is attacker-controlled on `workflow_dispatch`, and direct interpolation executes it as code.
+- **Action pinning**: every `uses:` is pinned to a full commit SHA with the version in a trailing comment. Dependabot (`.github/dependabot.yaml`) bumps them weekly; do not replace a pin with a moving tag.
+- **Secrets**: pass reusable workflows only the secrets they declare. `secrets: inherit` hands an external workflow every secret in this repository.
+
 ## YAML Conventions
 
 - Always `.yaml`, never `.yml` (CI workflows in this repo already follow this).

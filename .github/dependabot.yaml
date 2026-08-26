@@ -1,0 +1,19 @@
+---
+# Actions and reusable workflows in this repository are pinned to full commit
+# SHAs, which is what makes a supply-chain compromise of a moving tag a
+# non-event here. A pin with nothing to advance it is just a stale dependency,
+# so Dependabot owns bumping them and rewrites the trailing `# vX.Y.Z` comment
+# as it goes.
+version: 2
+
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      github-actions:
+        patterns:
+          - '*'

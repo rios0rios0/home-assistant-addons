@@ -49,20 +49,20 @@ RUN set -x \
        else \
            export S6_ARCH="${BUILD_ARCH}"; \
        fi \
-    && curl -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
        | tar Jxvf - -C / \
-    && curl -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
        | tar Jxvf - -C / \
-    && curl -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz" \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz" \
        | tar Jxvf - -C / \
-    && curl -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz" \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz" \
        | tar Jxvf - -C / \
     && mkdir -p /etc/fix-attrs.d /etc/services.d \
-    && curl -L -f -s -o /usr/bin/tempio \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s -o /usr/bin/tempio \
          "https://github.com/home-assistant/tempio/releases/download/${TEMPIO_VERSION}/tempio_${BUILD_ARCH}" \
     && chmod a+x /usr/bin/tempio \
     && mkdir -p /usr/src/bashio \
-    && curl -L -f -s "https://github.com/hassio-addons/bashio/archive/v${BASHIO_VERSION}.tar.gz" \
+    && curl --proto '=https' --proto-redir '=https' -L -f -s "https://github.com/hassio-addons/bashio/archive/v${BASHIO_VERSION}.tar.gz" \
        | tar -xzf - --strip 1 -C /usr/src/bashio \
     && mv /usr/src/bashio/lib /usr/lib/bashio \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
@@ -70,10 +70,15 @@ RUN set -x \
 
 # Copy application files
 WORKDIR /app
-COPY pyproject.toml pdm.lock* ./
+# Listed explicitly rather than as `pdm.lock*`: a glob copies whatever else
+# happens to match at build time, which is how unintended files reach an image.
+COPY pyproject.toml pdm.lock ./
 COPY src/ ./src/
 
-# Install Python dependencies
+# Install Python dependencies.
+# `pdm` is pinned and restricted to wheels: an unpinned install resolves to
+# whatever is newest at build time, and a source distribution would execute
+# its own `setup.py` during the build.
 RUN set -x \
     && apk add --no-cache --virtual .build-deps \
          cargo \
@@ -83,7 +88,8 @@ RUN set -x \
          openssl-dev \
          python3-dev \
     && pip3 install --no-cache-dir --break-system-packages \
-         pdm \
+         --only-binary :all: \
+         pdm==2.28.2 \
     && pdm config python.use_venv false \
     && pdm install --prod --no-self \
     && apk del .build-deps \

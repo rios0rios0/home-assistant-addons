@@ -1,0 +1,3 @@
+kind: 'Security'
+body: 'narrowed the secrets handed to the Claude reusable workflows. `claude.yaml` and `claude-code-review.yaml` passed `secrets: inherit`, giving workflows in another repository every secret this one holds; they now pass only `CLAUDE_CODE_OAUTH_TOKEN`, the single secret those workflows declare as required.'
+time: '2026-08-26T02:40:37.000000000Z'

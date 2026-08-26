@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   release:
-    uses: 'rios0rios0/pipelines/.github/workflows/release.yaml@main'
+    uses: rios0rios0/pipelines/.github/workflows/release.yaml@340366d49dfec814ebce9904d225c3f938053e99 # main
