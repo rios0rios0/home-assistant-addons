@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING CHANGE:** rewrote the add-on in Go. The Python package, its `pyproject.toml`/`pdm.lock`, and the
+  `mcp_ha_extended` module are gone; the add-on is now a single static binary at `/usr/bin/mcp-ha-extended`.
+  Behaviour is unchanged — the same eight MCP tools over stdio with the same JSON payloads — but anyone importing
+  the Python module or running `pdm run python -m mcp_ha_extended.server` must switch to the binary. The image no
+  longer contains a Python runtime.
+
 - **BREAKING CHANGE:** `HA_URL` is now required and no longer defaults to
   `http://homeassistant.local:8123`. The old default hardcoded an unencrypted endpoint and, when
   the variable was unset, silently sent requests — bearer token included — to a guessed host.

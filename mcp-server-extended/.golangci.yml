@@ -1,0 +1,30 @@
+run:
+  timeout: 5m
+  build-tags:
+    - unit
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - gocyclo
+    - revive
+    - gocritic
+    - nakedret
+    - prealloc
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  revive:
+    rules:
+      - name: unexported-return
+        disabled: true
+      - name: receiver-naming
+
+issues:
+  exclude-use-default: false

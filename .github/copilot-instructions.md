@@ -34,7 +34,7 @@ home-assistant-addons/
 │   │       └── finish              # S6 service finish script
 │   └── README.md                   # Add-on documentation
 ├── mcp-server-extended/            # Python add-on (additional files)
-│   ├── pyproject.toml              # Python project config (PDM)
+│   ├── pyproject.toml              # Python project config (Go modules)
 │   ├── pdm.lock                    # Locked dependencies
 │   ├── src/mcp_ha_extended/        # Python package source
 │   ├── tests/                      # pytest test suite
@@ -126,17 +126,17 @@ The root `repository.json` file contains:
 
 ## MCP Server Extended — Key Technologies & Dependencies
 
-- **Python 3.10+**: Minimum required version
+- **Go 1.27+**: Minimum required version
 - **MCP SDK** (`mcp>=0.9.0`): Model Context Protocol implementation
 - **aiohttp** (`>=3.9.0`): Async HTTP client for Home Assistant API
 - **PyYAML** (`>=6.0`): YAML parsing for automation configurations
 - **python-dotenv** (`>=1.0.0`): Environment variable management
-- **PDM**: Package and dependency manager (NOT pip/poetry)
+- **Go modules**: Package and dependency manager (NOT pip/poetry)
 
 ## Development Tools
 
 ### Package Management (MCP Server Extended)
-- **ALWAYS use PDM** for dependency management
+- **ALWAYS use Go modules** for dependency management
 - Add dependencies: `pdm add <package>`
 - Install dependencies: `pdm install`
 - Update dependencies: `pdm update`
@@ -149,7 +149,7 @@ The root `repository.json` file contains:
 
 ### Code Quality
 - **Black**: Code formatter (line length: 100)
-- **Ruff**: Linter (targets Python 3.10+)
+- **Ruff**: Linter (targets Go 1.27+)
 - Format code: `pdm run black .`
 - Lint code: `pdm run ruff check .`
 
@@ -165,7 +165,7 @@ The root `repository.json` file contains:
 
 ### Python Style (MCP Server Extended)
 - Line length: **100 characters** (configured in pyproject.toml)
-- Target: Python 3.10+ (use modern type hints: `str | None` instead of `Optional[str]`, `dict[str, Any]` for dictionaries)
+- Target: Go 1.27+ (use modern type hints: `str | None` instead of `Optional[str]`, `dict[str, Any]` for dictionaries)
 - Use type hints for all function signatures
 - Use descriptive variable names
 - Follow PEP 8 conventions (enforced by Black and Ruff)
@@ -346,12 +346,12 @@ Images are published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/<addon-n
 5. **Async-first**: Use async/await for all I/O operations
 6. **Documentation**: Update docs when adding features
 7. **Security**: Never commit tokens or secrets
-8. **PDM-only**: Do not introduce pip/poetry workflows for MCP Server Extended
+8. **Go modules-only**: Do not introduce pip/poetry workflows for MCP Server Extended
 
 ## Preferred Solutions
 
 - **HTTP Client**: aiohttp (not requests)
-- **Package Manager**: PDM (not pip or poetry)
+- **Package Manager**: Go modules (not pip or poetry)
 - **Testing**: pytest + pytest-asyncio (not unittest)
 - **Formatting**: Black (configured in pyproject.toml)
 - **Linting**: Ruff (not flake8 or pylint)

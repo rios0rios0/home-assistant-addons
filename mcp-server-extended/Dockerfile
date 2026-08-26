@@ -1,4 +1,36 @@
 ARG BUILD_FROM
+
+# The binary is cross-compiled on the builder's own architecture rather than
+# emulated. This add-on used to be a Python package, and installing it on armv7
+# meant compiling `msgpack` from source under QEMU because no musl armv7 wheel
+# exists — roughly twenty minutes per build. Go cross-compiles the same target
+# in seconds, so `--platform=${BUILDPLATFORM}` pins this stage to the runner and
+# GOARCH/GOARM select the target.
+FROM --platform=${BUILDPLATFORM} golang:1.27-alpine AS app-build
+
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG ADDON_VERSION=dev
+
+WORKDIR /src
+
+# Dependencies first: this layer is cached unless go.mod/go.sum change.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+
+RUN set -x \
+    && case "${TARGETVARIANT}" in \
+         v7) export GOARM=7 ;; \
+         v6) export GOARM=6 ;; \
+       esac \
+    && CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" \
+       go build -trimpath \
+         -ldflags "-s -w -X main.version=${ADDON_VERSION}" \
+         -o /out/mcp-ha-extended ./cmd/mcp-ha-extended
+
 FROM ${BUILD_FROM}
 
 # Default ENV
@@ -25,13 +57,11 @@ WORKDIR /usr/src
 ARG BUILD_ARCH
 
 # Install system dependencies
-# Note: bash, jq, tzdata, curl, ca-certificates are already in base image
+# Note: bash, jq, tzdata, curl, ca-certificates are already in base image.
+# The application is a statically linked binary, so no language runtime is
+# installed here at all — only what S6 and bashio need.
 RUN set -x \
     && apk add --no-cache \
-         git \
-         libffi \
-         python3 \
-         py3-pip \
          xz \
     && rm -rf /var/cache/apk/*
 
@@ -68,41 +98,8 @@ RUN set -x \
     && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf /usr/src/bashio
 
-# Copy application files
-WORKDIR /app
-# Listed explicitly rather than as `pdm.lock*`: a glob copies whatever else
-# happens to match at build time, which is how unintended files reach an image.
-COPY pyproject.toml pdm.lock ./
-COPY src/ ./src/
-
-# Install Python dependencies.
-# `pdm` is pinned and restricted to wheels: an unpinned install resolves to
-# whatever is newest at build time, and a source distribution would execute
-# its own `setup.py` during the build.
-#
-# `msgpack` is the one exception. It reaches this tree through
-# `pdm -> hishel -> msgpack`, and it publishes musllinux wheels for aarch64,
-# x86_64 and riscv64 but none for armv7 — so under a blanket `--only-binary`
-# every `hishel` version becomes uninstallable and the armv7 build dies with
-# `ResolutionImpossible`. Allowing just this package to build from its sdist
-# keeps armv7 working (the toolchain above exists precisely for that) without
-# opening the whole dependency tree to arbitrary build-time code.
-RUN set -x \
-    && apk add --no-cache --virtual .build-deps \
-         cargo \
-         gcc \
-         libffi-dev \
-         musl-dev \
-         openssl-dev \
-         python3-dev \
-    && pip3 install --no-cache-dir --break-system-packages \
-         --only-binary :all: \
-         --no-binary msgpack \
-         pdm==2.28.2 \
-    && pdm config python.use_venv false \
-    && pdm install --prod --no-self \
-    && apk del .build-deps \
-    && rm -rf /root/.cache/pdm
+# Install the application
+COPY --from=app-build /out/mcp-ha-extended /usr/bin/mcp-ha-extended
 
 # S6-Overlay
 WORKDIR /root

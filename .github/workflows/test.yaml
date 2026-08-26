@@ -1,0 +1,60 @@
+---
+name: Tests
+
+# Only `mcp-server-extended` ships application code; every other add-on is a
+# wrapper around an upstream image and is covered by the image build.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'mcp-server-extended/**'
+      - '.github/workflows/test.yaml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'mcp-server-extended/**'
+      - '.github/workflows/test.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-server-extended:
+    name: mcp-server-extended
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp-server-extended
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: mcp-server-extended/go.mod
+          cache-dependency-path: mcp-server-extended/go.sum
+
+      - name: Verify formatting
+        run: |
+          # gofmt exits 0 whatever it finds, so the file list is the signal.
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "${UNFORMATTED}" ]; then
+            echo "::error::gofmt reported unformatted files:"
+            echo "${UNFORMATTED}"
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet -tags unit ./...
+
+      - name: Test
+        # `-tags unit` is required: every test file carries a build tag, so an
+        # untagged run silently reports "no test files" and passes.
+        run: go test -tags unit -race -count=1 ./...
