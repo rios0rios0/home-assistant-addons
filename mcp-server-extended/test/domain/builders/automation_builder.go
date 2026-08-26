@@ -38,8 +38,11 @@ func (b *AutomationBuilder) WithEnabled(enabled bool) *AutomationBuilder {
 	return b
 }
 
-func (b *AutomationBuilder) WithTriggers(triggers ...any) *AutomationBuilder {
-	b.automation["triggers"] = triggers
+// WithTrigger sets the automation's `trigger` field. Home Assistant's schema
+// names it in the singular even though it holds a list; the plural spelling was
+// only introduced in 2024.10, and this add-on declares 2024.6.0 as its minimum.
+func (b *AutomationBuilder) WithTrigger(triggers ...any) *AutomationBuilder {
+	b.automation["trigger"] = triggers
 
 	return b
 }

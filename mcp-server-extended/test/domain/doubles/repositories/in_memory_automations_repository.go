@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/rios0rios0/home-assistant-addons/mcp-server-extended/internal/domain/entities"
@@ -22,8 +23,7 @@ type InMemoryAutomationsRepository struct {
 func NewInMemoryAutomationsRepository(automations ...entities.Automation) *InMemoryAutomationsRepository {
 	stored := make(map[string]entities.Automation, len(automations))
 	for _, automation := range automations {
-		id, _ := automation["id"].(string)
-		stored[id] = automation
+		stored[keyOf(automation)] = automation
 	}
 
 	return &InMemoryAutomationsRepository{automations: stored}
@@ -74,7 +74,7 @@ func (r *InMemoryAutomationsRepository) Insert(_ context.Context, automation ent
 		return nil, r.err
 	}
 
-	id, _ := automation["id"].(string)
+	id := keyOf(automation)
 	if id == "" {
 		id = "generated"
 		automation["id"] = id
@@ -112,4 +112,16 @@ func (r *InMemoryAutomationsRepository) Trigger(_ context.Context, id string) er
 	r.Triggered = append(r.Triggered, id)
 
 	return nil
+}
+
+// keyOf derives the map key from an automation's id. The entity contract allows
+// an id to arrive as a string or a number, so a bare type assertion to string
+// would silently key numeric ids under "".
+func keyOf(automation entities.Automation) string {
+	id := automation.ID()
+	if id == nil {
+		return ""
+	}
+
+	return fmt.Sprint(id)
 }

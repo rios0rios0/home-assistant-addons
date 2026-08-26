@@ -33,11 +33,14 @@ home-assistant-addons/
 │   │       ├── run                 # S6 service startup script
 │   │       └── finish              # S6 service finish script
 │   └── README.md                   # Add-on documentation
-├── mcp-server-extended/            # Python add-on (additional files)
-│   ├── pyproject.toml              # Python project config (Go modules)
-│   ├── pdm.lock                    # Locked dependencies
-│   ├── src/mcp_ha_extended/        # Python package source
-│   ├── tests/                      # pytest test suite
+├── mcp-server-extended/            # Go add-on (additional files)
+│   ├── go.mod                      # Module path and dependencies
+│   ├── go.sum                      # Dependency checksums
+│   ├── .golangci.yml               # Linter configuration
+│   ├── cmd/mcp-ha-extended/        # Entry point and Dig wiring
+│   ├── internal/domain/            # Entity and repository contract
+│   ├── internal/infrastructure/    # HA REST client, MCP controller
+│   ├── test/domain/                # Builders and in-memory doubles
 │   └── .docs/                      # Extended documentation
 ├── ADDON_IDEAS.md                  # Backlog of potential future add-ons
 ├── CONTRIBUTING.md                 # Contribution guidelines
@@ -127,31 +130,33 @@ The root `repository.json` file contains:
 ## MCP Server Extended — Key Technologies & Dependencies
 
 - **Go 1.27+**: Minimum required version
-- **MCP SDK** (`mcp>=0.9.0`): Model Context Protocol implementation
-- **aiohttp** (`>=3.9.0`): Async HTTP client for Home Assistant API
-- **PyYAML** (`>=6.0`): YAML parsing for automation configurations
-- **python-dotenv** (`>=1.0.0`): Environment variable management
-- **Go modules**: Package and dependency manager (NOT pip/poetry)
+- **MCP SDK** (`github.com/modelcontextprotocol/go-sdk`): the official Go SDK for the Model Context Protocol
+- **`gopkg.in/yaml.v3`**: YAML parsing for automation configurations
+- **`go.uber.org/dig`**: dependency injection wiring
+- **`github.com/sirupsen/logrus`**: structured logging (imported as `logger`)
+- **`github.com/stretchr/testify`**: test assertions and requirements
+- **Go modules**: package and dependency manager
 
 ## Development Tools
 
 ### Package Management (MCP Server Extended)
 - **ALWAYS use Go modules** for dependency management
-- Add dependencies: `pdm add <package>`
-- Install dependencies: `pdm install`
-- Update dependencies: `pdm update`
-- **NEVER** use `pip install -r requirements.txt` (no requirements.txt exists)
+- Add dependencies: `go get <module>`
+- Download dependencies: `go mod download`
+- Prune and sync: `go mod tidy`
+- Commit both `go.mod` and `go.sum`
 
 ### Testing
-- Framework: **pytest** with **pytest-asyncio** (`asyncio_mode = "auto"` — no `@pytest.mark.asyncio` decorator needed)
-- Run tests: `pdm run pytest` or `pdm run test`
-- Mock external API calls (Home Assistant) using `unittest.mock`
+- Framework: **testify** (`assert` and `require`)
+- Every test file carries a `//go:build unit` tag and lives in an external `_test` package
+- Unit tests call `t.Parallel()` and group scenarios with `t.Run()`
+- Run tests: `go test -tags unit ./...` — **the tag is required**, or packages report "no test files" and pass without testing anything
+- Prefer in-memory doubles and builders from `test/domain/` over mocks
 
 ### Code Quality
-- **Black**: Code formatter (line length: 100)
-- **Ruff**: Linter (targets Go 1.27+)
-- Format code: `pdm run black .`
-- Lint code: `pdm run ruff check .`
+- **gofmt**: Code formatter — `gofmt -l .` lists unformatted files
+- **go vet**: `go vet -tags unit ./...`
+- **golangci-lint**: Linter, configured in `.golangci.yml`
 
 ## Coding Standards and Best Practices
 
@@ -163,36 +168,32 @@ The root `repository.json` file contains:
 4. **JSON formatting**: Use 2-space indentation for all JSON files
 5. **Markdown formatting**: Follow existing markdown style with proper headers and lists
 
-### Python Style (MCP Server Extended)
-- Line length: **100 characters** (configured in pyproject.toml)
-- Target: Go 1.27+ (use modern type hints: `str | None` instead of `Optional[str]`, `dict[str, Any]` for dictionaries)
-- Use type hints for all function signatures
-- Use descriptive variable names
-- Follow PEP 8 conventions (enforced by Black and Ruff)
+### Go Style (MCP Server Extended)
+- File names use `snake_case`
+- Method receivers are a one or two letter abbreviation of the type, consistent across the type
+- Entities carry **no struct tags** — JSON tags belong on the response DTOs in `internal/infrastructure/controllers/responses/`
+- Accept interfaces, return structs
+- Use descriptive variable names; formatting is settled by `gofmt`
 
-### Async/Await Patterns
-- Use `async`/`await` for all I/O operations
-- Use `aiohttp.ClientSession()` for HTTP requests (not `requests`)
-- Always use async context managers: `async with session.request(...) as response:`
-- Handle exceptions appropriately in async functions
+### I/O Patterns
+- Every call that crosses a boundary takes a `context.Context` as its first parameter
+- Use the standard library `net/http` client; pass a `*http.Client` in so tests can supply their own
+- Wrap errors with `fmt.Errorf("...: %w", err)` so the cause survives
+- Log with `logger` (Logrus) to **stderr only** — stdout carries the MCP protocol stream
 
 ### MCP Tool Definitions
 Each tool follows this pattern:
-```python
-Tool(
-    name="tool_name",
-    description="Clear description of what the tool does",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "param_name": {
-                "type": "string",  # or "object", "array", etc.
-                "description": "Parameter description"
-            }
-        },
-        "required": ["param_name"]  # List required parameters
-    }
-)
+```go
+// The input schema is inferred from the argument struct; `jsonschema` tags
+// become the property descriptions an MCP client displays.
+type toolArgs struct {
+	ParamName string `json:"param_name" jsonschema:"Parameter description"`
+}
+
+mcp.AddTool(server, &mcp.Tool{
+	Name:        "tool_name",
+	Description: "Clear description of what the tool does",
+}, handler)
 ```
 
 ### Home Assistant API Patterns
@@ -223,25 +224,37 @@ Tool(
 ## Testing Guidelines
 
 ### Unit Tests
-- Mock external dependencies (Home Assistant API calls)
-- Use `AsyncMock` for async functions
+- Replace external dependencies with the in-memory double in `test/domain/doubles/`
+- Build fixtures with `test/domain/builders/`, not literals
 - Test both success and error paths
-- This project uses test classes (not standalone functions)
+- Every test file carries `//go:build unit` and lives in an external `_test` package
 - Example pattern:
-  ```python
-  class TestFeature:
-      async def test_function_name(self):
-          with patch("mcp_ha_extended.server.HA_TOKEN", "test_token"):
-              mock_response = AsyncMock()
-              # ... setup mock
-              result = await function_under_test()
-              assert result == expected_value
+  ```go
+  //go:build unit
+
+  func TestFeature(t *testing.T) {
+  	t.Parallel()
+
+  	t.Run("should do the thing when the condition holds", func(t *testing.T) {
+  		// given
+  		repository := doubles.NewInMemoryAutomationsRepository(
+  			builders.NewAutomationBuilder().WithID("1").Build(),
+  		)
+
+  		// when
+  		result, err := functionUnderTest(repository)
+
+  		// then
+  		require.NoError(t, err)
+  		assert.Equal(t, expected, result)
+  	})
+  }
   ```
 
 ### Manual Testing
-- Use `tests/manual_test_api.py` for live testing
-- Requires actual Home Assistant instance
-- Test against real API endpoints
+- Start the binary with `HA_URL` and `HA_TOKEN` set and drive it from an MCP client
+- Check connectivity first: `curl -H "Authorization: Bearer $HA_TOKEN" "$HA_URL/api/"`
+- Requires an actual Home Assistant instance
 
 ## Docker & Deployment
 
@@ -284,17 +297,17 @@ Tool(
 ### Adding a New MCP Tool
 
 1. Add `Tool` definition in `list_tools()` function
-2. Add handler in `call_tool()` function
-3. Implement the API logic (use `ha_api_call()` helper)
-4. Add unit tests in `tests/test_server.py`
+2. Register it in `AutomationsController.Register` with `mcp.AddTool`
+3. Add the handler method and, if it needs new data access, a method on the repository contract
+4. Add unit tests in `internal/infrastructure/controllers/automations_controller_test.go`
 5. Update documentation in `.docs/USAGE_EXAMPLES.md`
 
 ### Updating Dependencies
 
-1. `pdm add <package>@<version>` or `pdm add <package>`
-2. Verify with `pdm install`
-3. Run tests: `pdm run pytest`
-4. Update `pyproject.toml` if needed (usually automatic)
+1. `go get <module>@<version>`
+2. Prune and sync with `go mod tidy`
+3. Run tests: `go test -tags unit ./...`
+4. Commit both `go.mod` and `go.sum`
 
 ### Debugging
 
@@ -343,19 +356,19 @@ Images are published to GHCR: `ghcr.io/rios0rios0/home-assistant-addons/<addon-n
 2. **Test-driven**: Write tests before or alongside code changes
 3. **Type safety**: Use type hints consistently
 4. **Error handling**: Provide clear error messages
-5. **Async-first**: Use async/await for all I/O operations
+5. **Context-first**: Pass `context.Context` through every I/O boundary
 6. **Documentation**: Update docs when adding features
 7. **Security**: Never commit tokens or secrets
-8. **Go modules-only**: Do not introduce pip/poetry workflows for MCP Server Extended
+8. **Go modules only**: Do not introduce alternative dependency workflows for MCP Server Extended
 
 ## Preferred Solutions
 
-- **HTTP Client**: aiohttp (not requests)
-- **Package Manager**: Go modules (not pip or poetry)
-- **Testing**: pytest + pytest-asyncio (not unittest)
-- **Formatting**: Black (configured in pyproject.toml)
-- **Linting**: Ruff (not flake8 or pylint)
-- **Type Checking**: Built-in type hints (consider adding mypy if needed)
+- **HTTP Client**: standard library `net/http`
+- **Package Manager**: Go modules
+- **Testing**: testify with in-memory doubles (avoid mocks)
+- **Formatting**: gofmt
+- **Linting**: golangci-lint (see `.golangci.yml`)
+- **Dependency Injection**: Dig, with a `container.go` per layer
 
 ## Support and Contribution
 

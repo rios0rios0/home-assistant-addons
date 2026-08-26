@@ -81,7 +81,7 @@ func TestAutomationsControllerRead(t *testing.T) {
 	t.Run("should return the count and summaries when listing", func(t *testing.T) {
 		// given
 		repository := doubles.NewInMemoryAutomationsRepository(
-			builders.NewAutomationBuilder().WithID("1").WithAlias("First").WithTriggers("noise").Build(),
+			builders.NewAutomationBuilder().WithID("1").WithAlias("First").WithTrigger("noise").Build(),
 			builders.NewAutomationBuilder().WithID("2").WithAlias("Second").WithEnabled(false).Build(),
 		)
 
@@ -98,13 +98,13 @@ func TestAutomationsControllerRead(t *testing.T) {
 
 		first, _ := automations[0].(map[string]any)
 		assert.Equal(t, true, first["enabled"], "a missing enabled should default to true")
-		assert.NotContains(t, first, "triggers", "listing should summarise, not carry the full body")
+		assert.NotContains(t, first, "trigger", "listing should summarise, not carry the full body")
 	})
 
 	t.Run("should return the full body when getting one automation", func(t *testing.T) {
 		// given
 		repository := doubles.NewInMemoryAutomationsRepository(
-			builders.NewAutomationBuilder().WithID("1").WithAlias("First").WithTriggers("noise").Build(),
+			builders.NewAutomationBuilder().WithID("1").WithAlias("First").WithTrigger("noise").Build(),
 		)
 
 		// when
@@ -113,7 +113,7 @@ func TestAutomationsControllerRead(t *testing.T) {
 		// then
 		decoded := decodeOf(t, result)
 		assert.Equal(t, "First", decoded["alias"])
-		assert.Contains(t, decoded, "triggers", "get should return the full automation")
+		assert.Contains(t, decoded, "trigger", "get should return the full automation")
 	})
 
 	t.Run("should register every tool", func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestAutomationsControllerWrite(t *testing.T) {
 	t.Run("should parse the YAML when creating", func(t *testing.T) {
 		// given
 		repository := doubles.NewInMemoryAutomationsRepository()
-		document := "alias: From YAML\ntriggers:\n  - trigger: time\n    at: '07:00:00'\n"
+		document := "alias: From YAML\ntrigger:\n  - platform: time\n    at: '07:00:00'\n"
 
 		// when
 		result := callTool(t, repository, "create_automation", map[string]any{"automation_yaml": document})
@@ -165,7 +165,7 @@ func TestAutomationsControllerWrite(t *testing.T) {
 
 		// when
 		result := callTool(t, repository, "create_automation", map[string]any{
-			"automation_yaml": "triggers: []\n",
+			"automation_yaml": "trigger: []\n",
 			"alias":           "Named by argument",
 		})
 
@@ -181,7 +181,7 @@ func TestAutomationsControllerWrite(t *testing.T) {
 
 		// when
 		callTool(t, repository, "create_automation", map[string]any{
-			"automation_yaml": "alias: From YAML\ntriggers: []\n",
+			"automation_yaml": "alias: From YAML\ntrigger: []\n",
 			"alias":           "From argument",
 		})
 
@@ -261,7 +261,7 @@ func TestAutomationsControllerWrite(t *testing.T) {
 		// to survive the round trip rather than being replaced by a stub.
 		repository := doubles.NewInMemoryAutomationsRepository(
 			builders.NewAutomationBuilder().
-				WithID("5").WithAlias("Keep me").WithEnabled(true).WithTriggers("noise").Build(),
+				WithID("5").WithAlias("Keep me").WithEnabled(true).WithTrigger("noise").Build(),
 		)
 
 		// when
@@ -271,7 +271,7 @@ func TestAutomationsControllerWrite(t *testing.T) {
 		stored, _ := repository.Get(context.TODO(), "5")
 		assert.Equal(t, false, stored.IsEnabled())
 		assert.Equal(t, "Keep me", stored.Alias())
-		assert.Contains(t, stored, "triggers", "triggers should survive the round trip")
+		assert.Contains(t, stored, "trigger", "triggers should survive the round trip")
 	})
 }
 
