@@ -7,3 +7,6 @@ args:
   BASHIO_VERSION: 0.17.1
   TEMPIO_VERSION: 2024.11.2
   S6_OVERLAY_VERSION: 3.1.6.2
+  # Stamped into the binary and reported as the MCP server version;
+  # keep in step with `version` in config.yaml.
+  ADDON_VERSION: 0.1.0

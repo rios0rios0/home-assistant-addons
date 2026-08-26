@@ -14,13 +14,15 @@ Every add-on lives in its own top-level directory and declares itself via `confi
 
 The `Dockerfile` uses a multi-stage build: the first stage pulls the official upstream image (e.g., `binwiederhier/ntfy`, `n8nio/n8n`), the second stage starts from `${BUILD_FROM}` (an HA architecture base like `ghcr.io/home-assistant/amd64-base`) and copies the upstream binary across. It then installs **S6 overlay** (process supervisor), **Bashio** (HA add-on shell lib), and **Tempio** (template renderer) using the versions passed via `BASHIO_VERSION`, `TEMPIO_VERSION`, `S6_OVERLAY_VERSION` build args. Startup is handled by scripts in `rootfs/etc/services.d/<slug>/run` and `finish`, which read add-on options via `bashio::config`.
 
-### 2. Python application (`mcp-server-extended`)
+### 2. Go application (`mcp-server-extended`)
 
-The only add-on that ships its own application code. It's a Python `3.10+` package managed with **PDM** (`pyproject.toml`, `pdm.lock`), built with `pdm-backend`, tested with `pytest` + `pytest-asyncio` (`asyncio_mode = "auto"` — no decorator needed). Formatting via `Black` (line length `100`), linting via `Ruff`. Source in `src/mcp_ha_extended/`, tests in `tests/`. The add-on exposes Home Assistant automation management over the **Model Context Protocol** to external MCP clients; it reads `HA_URL` and `HA_TOKEN` from env and talks to the HA REST API via `aiohttp`.
+The only add-on that ships its own application code. It is a Go module following the domain/infrastructure split: `internal/domain/` holds the `Automation` entity and the `AutomationsRepository` contract, `internal/infrastructure/` holds the Home Assistant REST implementation and the MCP controller, and `cmd/mcp-ha-extended/` is the composition root wired with **Dig**. Logging is **Logrus** to stderr (stdout carries the MCP protocol stream). Tests use **testify**, live beside the code in external `_test` packages, carry a `//go:build unit` tag, and run in parallel via `t.Parallel()` + `t.Run()`; doubles and builders live under `test/domain/`. The add-on exposes Home Assistant automation management over the **Model Context Protocol** to external MCP clients; it reads `HA_URL` and `HA_TOKEN` from env, both required.
+
+Its `Dockerfile` cross-compiles from a `--platform=${BUILDPLATFORM}` builder stage, so no architecture is emulated and the runtime image carries a single static binary with no language runtime.
 
 ## CI/CD Architecture
 
-Five workflows in `.github/workflows/`:
+Six workflows in `.github/workflows/`:
 
 - **`build.yaml`** — orchestrator. Three jobs:
   1. `detect-changes`: discovers all `config.yaml` files (depth 2), computes the changed subset via `git diff` against the base SHA, reads each add-on's `arch[]` list, and emits a `{addon, arch}` build matrix. Pushes to `main`, tag pushes, and any change under `.github/workflows/` rebuild **all** add-ons.
@@ -29,6 +31,7 @@ Five workflows in `.github/workflows/`:
 - **`_build-addon.yaml`** — reusable per-arch build (checkout, arch→platform mapping, QEMU *only* when the target differs from the runner, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push. `aarch64` is dispatched to a native `ubuntu-24.04-arm` runner; `amd64` and `armv7` run on `ubuntu-latest`, the latter under QEMU because the ARM hosts do not execute 32-bit ARM.
 - **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
 - **`claude-code-review.yaml`** — automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
+- **`test.yaml`** — builds, vets, gofmt-checks and tests `mcp-server-extended` on pushes and pull requests that touch it. Runs `go test -tags unit -race`.
 - **`release.yaml`** — triggers on push to `main`, delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
 
 ## Common Commands
@@ -60,14 +63,16 @@ yq eval '.arch[]' <addon>/config.yaml
 All commands from inside `mcp-server-extended/`:
 
 ```bash
-pdm install                 # install deps (never pip install)
-pdm run pytest              # run full test suite
-pdm run pytest tests/test_server.py::TestFeature::test_name  # single test
-pdm run test                # alias for pytest tests/
-pdm run start               # run the MCP server locally
-pdm run black .             # format
-pdm run ruff check .        # lint
+go mod download                      # install deps
+go build ./...                       # compile
+go test -tags unit ./...             # run the suite (the tag is required)
+go test -tags unit -run TestName ./... # single test
+go vet -tags unit ./...              # vet
+gofmt -l .                           # list unformatted files
+golangci-lint run                    # lint (see .golangci.yaml)
 ```
+
+`-tags unit` is not optional: every test file carries the build tag, so an untagged run reports "no test files" and passes without testing anything.
 
 ## Conventions Specific to This Repo
 

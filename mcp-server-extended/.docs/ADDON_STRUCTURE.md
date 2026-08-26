@@ -16,12 +16,25 @@ mcp-server-extended/
 │           └── mcp-server-extended/
 │               ├── run      # Service startup script
 │               └── finish   # Service shutdown script
-├── src/                     # Application source code
-│   └── mcp_ha_extended/
-│       ├── __init__.py
-│       └── server.py
-├── pyproject.toml           # Python project configuration
-├── pdm.lock                 # Locked dependencies
+├── cmd/                     # Composition root
+│   └── mcp-ha-extended/
+│       ├── main.go          # Entry point
+│       └── dig.go           # Dependency injection wiring
+├── internal/                # Application code
+│   ├── container.go         # Provider registration across layers
+│   ├── domain/              # Contracts: entity and repository interface
+│   │   ├── entities/
+│   │   └── repositories/
+│   └── infrastructure/      # Implementations
+│       ├── controllers/     # MCP tool handlers, responses, mappers
+│       └── repositories/    # Home Assistant REST client
+├── test/                    # Shared test helpers
+│   └── domain/
+│       ├── builders/        # Test data builders
+│       └── doubles/         # In-memory test doubles
+├── go.mod                   # Module path and dependencies
+├── go.sum                   # Dependency checksums
+├── .golangci.yml            # Linter configuration
 └── .docs/                   # Documentation (see SUMMARY.md)
 ```
 
@@ -37,23 +50,27 @@ Defines the addon metadata, configuration schema, and requirements:
 ### build.yaml
 Specifies the base images for each architecture:
 - Base images from Home Assistant's official registry
-- Build arguments (bashio, tempio, s6-overlay versions)
+- Build arguments (bashio, tempio, s6-overlay versions, and `ADDON_VERSION`,
+  which is stamped into the binary and reported as the MCP server version)
 
 ### Dockerfile
 Multi-stage build that:
-1. Sets up the base environment
-2. Installs system dependencies (Python, curl, etc.)
+1. Cross-compiles the binary in a `--platform=${BUILDPLATFORM}` Go builder stage,
+   so the target architecture is never emulated
+2. Sets up the base environment
 3. Installs S6 overlay, bashio, and tempio
-4. Copies application code
-5. Installs Python dependencies using PDM
-6. Sets up the rootfs overlay
+4. Copies the static binary to `/usr/bin/mcp-ha-extended`
+5. Sets up the rootfs overlay
+
+No language runtime is installed in the final image — the binary is statically
+linked and self-contained.
 
 ### rootfs/etc/services.d/mcp-server-extended/run
 Service startup script that:
 - Reads configuration from bashio
 - Sets environment variables (HA_URL, HA_TOKEN)
-- Validates configuration
-- Starts the MCP server using PDM
+- Validates configuration (both `HA_URL` and `HA_TOKEN` are required)
+- Executes `/usr/bin/mcp-ha-extended`
 
 ### rootfs/etc/services.d/mcp-server-extended/finish
 Service shutdown script for cleanup (if needed)

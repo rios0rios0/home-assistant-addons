@@ -1,6 +1,6 @@
 # MCP Server Extended
 
-A Model Context Protocol (MCP) server that extends Home Assistant capabilities to support automation management. Available as both a standalone Python application and a Home Assistant addon.
+A Model Context Protocol (MCP) server that extends Home Assistant capabilities to support automation management. Available as both a standalone Go binary and a Home Assistant addon.
 
 ## Features
 
@@ -23,12 +23,16 @@ A Model Context Protocol (MCP) server that extends Home Assistant capabilities t
 
 See [Addon Installation Guide](.docs/ADDON_INSTALLATION.md) for detailed instructions.
 
-### As a Standalone Python Application
+### As a Standalone Binary
 
-1. Install dependencies: `pdm install`
-2. Set environment variables: `HA_URL` and `HA_TOKEN`
-3. Run: `pdm run python -m mcp_ha_extended.server`
-4. Configure your MCP client to use the server
+1. Download dependencies: `go mod download`
+2. Build: `CGO_ENABLED=0 go build -o mcp-ha-extended ./cmd/mcp-ha-extended`
+3. Set environment variables: `HA_URL` and `HA_TOKEN`
+4. Run: `./mcp-ha-extended`
+5. Configure your MCP client to point at the binary
+
+The result is a statically linked binary, so the machine that runs it needs no Go
+toolchain. To iterate without building, `go run ./cmd/mcp-ha-extended` works too.
 
 See [Quick Start Guide](.docs/QUICK_START.md) for a 5-minute setup, or [Setup Guide](.docs/SETUP.md) for detailed instructions.
 
@@ -54,7 +58,7 @@ All documentation is organized in the [`.docs`](.docs/) folder:
          │
 ┌────────▼─────────────────────────┐
 │  MCP Server Extended             │
-│  (Python - this project)         │
+│  (Go - this project)             │
 └────────┬─────────────────────────┘
          │ HTTP REST API
          │
@@ -67,7 +71,7 @@ All documentation is organized in the [`.docs`](.docs/) folder:
 
 ## Requirements
 
-- Python 3.10+
+- Go 1.27+
 - Home Assistant instance with REST API enabled
 - Long-lived access token from Home Assistant
 - MCP-compatible client (e.g., Cursor IDE)
@@ -82,7 +86,7 @@ Easiest installation method. The addon is automatically built and published to G
 
 See [Addon Installation Guide](.docs/ADDON_INSTALLATION.md) for details.
 
-### Option 2: Standalone Python Application
+### Option 2: Standalone Binary
 
 For development or when you don't want to use Home Assistant addons.
 
@@ -107,23 +111,23 @@ See [Usage Examples](.docs/USAGE_EXAMPLES.md) for detailed examples.
 
 ### Prerequisites
 
-- Python 3.10+
-- [PDM](https://pdm.fming.dev/) for dependency management
+- Go 1.27+
+- [Go modules](https://go.dev/ref/mod) for dependency management
 
 ### Setup
 
 ```bash
 # Install dependencies
-pdm install
+go mod download
 
 # Run tests
-pdm run pytest
+go test -tags unit ./...
 
 # Run the server
-pdm run python -m mcp_ha_extended.server
+go run ./cmd/mcp-ha-extended
 ```
 
-See [Setup Guide](.docs/SETUP.md) and [PDM Setup](.docs/PDM_SETUP.md) for more details.
+See the [Setup Guide](.docs/SETUP.md) for more details.
 
 ### Building the Addon
 

@@ -9,7 +9,7 @@ For setup instructions, see:
 
 ## Example 1: List All Automations
 
-```python
+```text
 # Tool call
 list_automations()
 
@@ -30,7 +30,7 @@ list_automations()
 
 ## Example 2: Create Automation from YAML
 
-```python
+```text
 # Tool call
 create_automation(
   automation_yaml="""
@@ -62,7 +62,7 @@ create_automation(
 
 ## Example 3: Update Existing Automation
 
-```python
+```text
 # Tool call
 update_automation(
   automation_id="automation.morning_routine",
@@ -88,7 +88,7 @@ update_automation(
 
 ## Example 4: Get Automation Details
 
-```python
+```text
 # Tool call
 get_automation(automation_id="automation.morning_routine")
 
@@ -107,7 +107,7 @@ get_automation(automation_id="automation.morning_routine")
 
 ## Example 5: Enable/Disable Automation
 
-```python
+```text
 # Disable
 disable_automation(automation_id="automation.morning_routine")
 
@@ -117,7 +117,7 @@ enable_automation(automation_id="automation.morning_routine")
 
 ## Example 6: Trigger Automation Manually
 
-```python
+```text
 # Tool call
 trigger_automation(automation_id="automation.morning_routine")
 
@@ -130,7 +130,7 @@ trigger_automation(automation_id="automation.morning_routine")
 
 ## Example 7: Delete Automation
 
-```python
+```text
 # Tool call
 delete_automation(automation_id="automation.test_automation")
 
@@ -149,47 +149,119 @@ While the MCP server doesn't have bulk operations built-in, you can:
 2. **Loop through** and call individual operations
 3. **Or extend the server** to add bulk operations
 
-Example Python script for bulk enable:
+Example Go program for bulk enable, using the same repository the add-on uses:
 
-```python
-import asyncio
-from server import ha_api_call
+```go
+package main
 
-async def enable_all_automations():
-    automations = await ha_api_call("GET", "/automation")
-    for auto in automations:
-        auto_id = auto.get("id")
-        if not auto.get("enabled"):
-            current = await ha_api_call("GET", f"/automation/{auto_id}")
-            current["enabled"] = True
-            await ha_api_call("PUT", f"/automation/{auto_id}", current)
-            print(f"Enabled {auto_id}")
+import (
+	"context"
+	"fmt"
+	"os"
 
-asyncio.run(enable_all_automations())
+	"github.com/rios0rios0/home-assistant-addons/mcp-server-extended/internal/infrastructure/repositories"
+)
+
+func main() {
+	repository := repositories.NewHomeAssistantAutomationsRepository(
+		os.Getenv("HA_URL"), os.Getenv("HA_TOKEN"), nil,
+	)
+
+	ctx := context.Background()
+
+	automations, err := repository.List(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, automation := range automations {
+		if automation.IsEnabled() == true {
+			continue
+		}
+
+		// An id is not guaranteed to be a string; skip anything else rather
+		// than calling Get/Update with an empty id.
+		id, ok := automation.ID().(string)
+		if !ok || id == "" {
+			continue
+		}
+
+		// Read the automation back before writing: enabling is a
+		// read-modify-write, and the rest of the body has to survive it.
+		current, err := repository.Get(ctx, id)
+		if err != nil {
+			panic(err)
+		}
+
+		current.SetEnabled(true)
+
+		if _, err := repository.Update(ctx, id, current); err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Enabled %s\n", id)
+	}
+}
 ```
 
 ## Example 9: Import from YAML Files
 
-You can create a helper script to import all YAML files:
+You can write a helper program to import all YAML files:
 
-```python
-import os
-import yaml
-import asyncio
-from server import ha_api_call
+```go
+package main
 
-async def import_automations_from_directory(directory):
-    for filename in os.listdir(directory):
-        if filename.endswith('.yaml'):
-            with open(os.path.join(directory, filename), 'r') as f:
-                automations = yaml.safe_load(f)
-                if isinstance(automations, list):
-                    for automation in automations:
-                        result = await ha_api_call("POST", "/automation", automation)
-                        print(f"Imported {automation.get('alias', 'unnamed')}")
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 
-# Usage
-asyncio.run(import_automations_from_directory("../automations"))
+	"gopkg.in/yaml.v3"
+
+	"github.com/rios0rios0/home-assistant-addons/mcp-server-extended/internal/domain/entities"
+	"github.com/rios0rios0/home-assistant-addons/mcp-server-extended/internal/infrastructure/repositories"
+)
+
+func main() {
+	repository := repositories.NewHomeAssistantAutomationsRepository(
+		os.Getenv("HA_URL"), os.Getenv("HA_TOKEN"), nil,
+	)
+
+	matches, err := filepath.Glob(filepath.Join("../automations", "*.yaml"))
+	if err != nil {
+		panic(err)
+	}
+
+	for _, path := range matches {
+		document, err := os.ReadFile(path)
+		if err != nil {
+			panic(err)
+		}
+
+		// Each file may hold a single automation or a list of them.
+		var automations []entities.Automation
+		if err := yaml.Unmarshal(document, &automations); err != nil {
+			var single entities.Automation
+			if err := yaml.Unmarshal(document, &single); err != nil {
+				panic(err)
+			}
+			automations = []entities.Automation{single}
+		}
+
+		for _, automation := range automations {
+			if _, err := repository.Insert(context.Background(), automation); err != nil {
+				panic(err)
+			}
+
+			alias, ok := automation.Alias().(string)
+			if !ok {
+				alias = "unnamed"
+			}
+			fmt.Printf("Imported %s\n", alias)
+		}
+	}
+}
 ```
 
 ## Example 10: Using with Cursor AI
