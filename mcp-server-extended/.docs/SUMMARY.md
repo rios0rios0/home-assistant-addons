@@ -13,7 +13,6 @@ Welcome to the MCP Server Extended documentation. This index helps you navigate 
 ### For Developers
 
 - **[Setup Guide](SETUP.md)** - Detailed development setup instructions
-- **[PDM Setup](PDM_SETUP.md)** - Python dependency management with PDM
 - **[Implementation Guide](IMPLEMENTATION_GUIDE.md)** - Technical deep dive into the implementation
 
 ### For Addon Maintainers
@@ -30,7 +29,6 @@ Welcome to the MCP Server Extended documentation. This index helps you navigate 
 |----------|---------|----------|
 | [Quick Start Guide](QUICK_START.md) | Fast setup in 5 minutes | End users |
 | [Setup Guide](SETUP.md) | Detailed setup with troubleshooting | Developers |
-| [PDM Setup](PDM_SETUP.md) | Python dependency management | Developers |
 
 ### Usage
 
@@ -56,7 +54,7 @@ Welcome to the MCP Server Extended documentation. This index helps you navigate 
 → Start with [Addon Installation](ADDON_INSTALLATION.md)
 
 **...develop or modify the code**
-→ Read [Setup Guide](SETUP.md) and [PDM Setup](PDM_SETUP.md)
+→ Read the [Setup Guide](SETUP.md)
 
 **...understand how it works**
 → Check [Implementation Guide](IMPLEMENTATION_GUIDE.md)
@@ -77,9 +75,6 @@ Fast-track setup guide to get automation management working in 5 minutes. Perfec
 
 ### [Setup Guide](SETUP.md)
 Comprehensive setup instructions with detailed steps, troubleshooting tips, and alternative approaches. Essential reading for developers.
-
-### [PDM Setup](PDM_SETUP.md)
-Guide to using PDM (Python Dependency Manager) for this project. Covers installation, usage, and best practices.
 
 ### [Usage Examples](USAGE_EXAMPLES.md)
 Real-world examples showing how to use each MCP tool. Includes code snippets and expected responses.

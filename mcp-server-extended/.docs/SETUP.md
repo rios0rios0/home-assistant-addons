@@ -9,23 +9,19 @@
 5. Give it a name (e.g., "MCP Automation Server")
 6. Copy the token (you won't see it again!)
 
-## Step 2: Install Dependencies
+## Step 2: Build the Binary
 
 ```bash
-cd mcp_ha_automations
-pip install -r requirements.txt
+cd mcp-server-extended
+go build -o mcp-ha-extended ./cmd/mcp-ha-extended
 ```
+
+The result is a single static binary. Nothing else has to be installed on the
+machine that runs it — there is no interpreter and no dependency tree.
 
 ## Step 3: Configure Environment
 
-Create a `.env` file:
-
-```bash
-HA_URL=http://homeassistant.local:8123
-HA_TOKEN=your_token_here
-```
-
-Or export environment variables:
+Export both variables:
 
 ```bash
 export HA_URL="http://homeassistant.local:8123"
@@ -34,15 +30,27 @@ export HA_TOKEN="your_token_here"
 
 **Note:** Replace `homeassistant.local` with your actual Home Assistant URL (could be an IP address like `192.168.1.100:8123`)
 
+**Both are required.** `HA_URL` has no default: an earlier version fell back to
+`http://homeassistant.local:8123`, which meant that a missing value silently sent
+requests — bearer token included — to a host the user never named. The server now
+refuses to start and says which variable is missing.
+
 ## Step 4: Test the Server
 
-Test the server manually:
+Check connectivity first:
 
 ```bash
-python server.py
+curl -H "Authorization: Bearer $HA_TOKEN" "$HA_URL/api/"
 ```
 
-The server communicates via stdio, so you'll need to test it through an MCP client.
+Then start the server manually:
+
+```bash
+./mcp-ha-extended
+```
+
+It logs `serving MCP over stdio` to stderr and then waits. The protocol itself runs
+over stdin/stdout, so anything beyond a start-up check needs an MCP client.
 
 ## Step 5: Configure Cursor/IDE
 
@@ -56,10 +64,8 @@ The server communicates via stdio, so you'll need to test it through an MCP clie
 {
   "mcpServers": {
     "home-assistant-automations": {
-      "command": "python",
-      "args": [
-        "/absolute/path/to/mcp_ha_automations/server.py"
-      ],
+      "command": "/absolute/path/to/mcp-server-extended/mcp-ha-extended",
+      "args": [],
       "env": {
         "HA_URL": "http://homeassistant.local:8123",
         "HA_TOKEN": "your_token_here"
@@ -105,9 +111,9 @@ Once configured, you should be able to use these tools in Cursor:
 
 ### MCP Server Not Found
 
-- Make sure Python path is correct in config
-- Check that all dependencies are installed
-- Verify the server.py file is executable: `chmod +x server.py`
+- Make sure the config points at an absolute path to the binary
+- Verify the binary is executable: `chmod +x mcp-ha-extended`
+- Confirm it was built for this machine's OS and architecture (`file mcp-ha-extended`)
 
 ### API Errors
 
@@ -119,7 +125,6 @@ Once configured, you should be able to use these tools in Cursor:
 
 - [Quick Start Guide](QUICK_START.md) - Fast setup guide
 - [Usage Examples](USAGE_EXAMPLES.md) - Code examples
-- [PDM Setup](PDM_SETUP.md) - Python dependency management
 - [Implementation Guide](IMPLEMENTATION_GUIDE.md) - Technical details
 - [Addon Installation](ADDON_INSTALLATION.md) - Install as Home Assistant addon
 - [Documentation Index](SUMMARY.md) - Complete documentation navigation

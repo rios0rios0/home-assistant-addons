@@ -70,8 +70,7 @@ The addon uses:
 - **S6 Overlay**: Process supervision and init system
 - **bashio**: Home Assistant addon helper library
 - **tempio**: Template engine for configuration files
-- **Python 3.10+**: Runtime environment
-- **PDM**: Python dependency management
+- **Statically linked Go binary**: no runtime or interpreter is installed in the image
 
 ## Troubleshooting
 
@@ -91,7 +90,6 @@ The addon uses:
 
 For development setup and testing instructions, see:
 - [Setup Guide](SETUP.md) - Detailed development setup
-- [PDM Setup](PDM_SETUP.md) - Python dependency management
 - [Implementation Guide](IMPLEMENTATION_GUIDE.md) - Technical details
 
 ## Related Documentation

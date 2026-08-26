@@ -50,7 +50,7 @@ This guide explains the different approaches to adding automation management cap
 
 Home Assistant exposes automations via REST API:
 
-```python
+```http
 # List all automations
 GET /api/automation
 Authorization: Bearer {token}
@@ -79,21 +79,21 @@ POST /api/automation/{automation_id}/trigger
 
 Each tool follows this pattern:
 
-```python
-Tool(
-    name="tool_name",
-    description="What the tool does",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "param_name": {
-                "type": "string",
-                "description": "Parameter description"
-            }
-        },
-        "required": ["param_name"]
-    }
-)
+```go
+// The input schema is inferred from the argument struct; `jsonschema` tags
+// become the property descriptions an MCP client displays.
+type toolArgs struct {
+	ParamName string `json:"param_name" jsonschema:"What the parameter means"`
+}
+
+mcp.AddTool(server, &mcp.Tool{
+	Name:        "tool_name",
+	Description: "What the tool does",
+}, handler)
+
+func handler(ctx context.Context, _ *mcp.CallToolRequest, args toolArgs) (*mcp.CallToolResult, any, error) {
+	...
+}
 ```
 
 ### Error Handling
@@ -122,12 +122,29 @@ If extending the existing Home Assistant MCP server, you would:
 
 Example test:
 
-```python
-async def test_list_automations():
-    result = await ha_api_call("GET", "/automation")
-    assert isinstance(result, list)
-    assert len(result) >= 0
+```go
+//go:build unit
+
+func TestList(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should list automations from a bare array", func(t *testing.T) {
+		// given
+		server, _ := newServer(t, respondJSON([]any{map[string]any{"id": "1"}}))
+		repository := repositories.NewHomeAssistantAutomationsRepository(server.URL, "token", nil)
+
+		// when
+		automations, err := repository.List(context.TODO())
+
+		// then
+		require.NoError(t, err)
+		assert.Len(t, automations, 1)
+	})
+}
 ```
+
+Run them with `go test -tags unit ./...` — the build tag is required, or the
+packages report "no test files" and pass without testing anything.
 
 ## Security Considerations
 
@@ -148,7 +165,7 @@ async def test_list_automations():
 
 ### Development
 ```bash
-python server.py
+go run ./cmd/mcp-ha-extended
 ```
 
 ### Production
@@ -158,18 +175,29 @@ python server.py
 - Set up alerts
 
 ### Docker (Optional)
+
+The add-on's own `Dockerfile` cross-compiles rather than emulating, which is what
+keeps armv7 fast. A standalone image follows the same shape:
+
 ```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY server.py .
-CMD ["python", "server.py"]
+FROM --platform=${BUILDPLATFORM} golang:1.27-alpine AS build
+ARG TARGETARCH
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags "-s -w" -o /out/mcp-ha-extended ./cmd/mcp-ha-extended
+
+FROM alpine:3.22
+COPY --from=build /out/mcp-ha-extended /usr/bin/mcp-ha-extended
+ENTRYPOINT ["/usr/bin/mcp-ha-extended"]
 ```
 
 ## Next Steps
 
-1. **Test the standalone server** - Use `test_api.py` to verify connectivity
+1. **Test the standalone server** - Check connectivity with `curl -H "Authorization: Bearer $HA_TOKEN" "$HA_URL/api/"`
 2. **Configure Cursor** - Add server to MCP configuration
 3. **Try creating an automation** - Use the new tools
 4. **Iterate** - Add more features as needed
@@ -189,7 +217,6 @@ If you extend the official Home Assistant MCP server:
 ## Related Documentation
 
 - [Setup Guide](SETUP.md) - Development setup instructions
-- [PDM Setup](PDM_SETUP.md) - Python dependency management
 - [Usage Examples](USAGE_EXAMPLES.md) - Code examples
 - [Addon Structure](ADDON_STRUCTURE.md) - Addon architecture
 - [Documentation Index](SUMMARY.md) - Complete documentation navigation

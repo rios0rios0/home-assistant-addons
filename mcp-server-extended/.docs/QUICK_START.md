@@ -6,24 +6,26 @@ Get automation management working in 5 minutes!
 
 - Home Assistant running and accessible
 - Long-lived access token (get from HA profile → Long-lived access tokens)
+- [Go 1.27+](https://go.dev/dl/) — only to build the binary; the add-on install needs nothing
 
-## Step 1: Install
+## Step 1: Build
 
 ```bash
-cd mcp_ha_automations
-pip install -r requirements.txt
+cd mcp-server-extended
+go build -o mcp-ha-extended ./cmd/mcp-ha-extended
+```
+
+That produces a single static binary with no runtime dependencies. To cross-compile
+for another machine, set `GOOS`/`GOARCH`:
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o mcp-ha-extended ./cmd/mcp-ha-extended
 ```
 
 ## Step 2: Configure
 
-Create `.env` file:
-
-```bash
-HA_URL=http://192.168.1.100:8123  # Your HA URL
-HA_TOKEN=eyJ0eXAiOiJKV1QiLCJh...   # Your token
-```
-
-Or export:
+Both variables are **required** — the server refuses to start without them rather
+than guessing a host and sending your token to it:
 
 ```bash
 export HA_URL="http://192.168.1.100:8123"
@@ -32,15 +34,25 @@ export HA_TOKEN="your_token_here"
 
 ## Step 3: Test
 
+Check that the token and URL work before wiring the server into a client:
+
 ```bash
-python test_api.py
+curl -H "Authorization: Bearer $HA_TOKEN" "$HA_URL/api/"
 ```
 
-Should see:
+Should return:
+
+```json
+{"message": "API running."}
 ```
-✓ API connection successful
-✓ Automation API accessible
+
+Then confirm the binary starts — it speaks MCP on stdin/stdout and logs to stderr:
+
+```bash
+./mcp-ha-extended
 ```
+
+You should see a `serving MCP over stdio` line on stderr. Press `Ctrl+C` to stop.
 
 ## Step 4: Configure Cursor
 
@@ -50,8 +62,8 @@ Add to Cursor settings (JSON):
 {
   "mcpServers": {
     "home-assistant-automations": {
-      "command": "python",
-      "args": ["/absolute/path/to/mcp_ha_automations/server.py"],
+      "command": "/absolute/path/to/mcp-server-extended/mcp-ha-extended",
+      "args": [],
       "env": {
         "HA_URL": "http://192.168.1.100:8123",
         "HA_TOKEN": "your_token_here"
@@ -60,6 +72,8 @@ Add to Cursor settings (JSON):
   }
 }
 ```
+
+The command is the binary itself — there is no interpreter to point at.
 
 ## Step 5: Use!
 
@@ -73,14 +87,22 @@ In Cursor, you can now:
 ## Troubleshooting
 
 **Connection failed?**
+
 - Check `HA_URL` is correct (try in browser)
 - Verify token works: `curl -H "Authorization: Bearer $HA_TOKEN" $HA_URL/api/`
 
+**Server exits immediately?**
+
+- The binary requires both `HA_URL` and `HA_TOKEN`. A missing one is reported on
+  stderr as `HA_URL environment variable must be set`.
+
 **Server not found?**
-- Check Python path in config
-- Make sure `server.py` is executable: `chmod +x server.py`
+
+- Use an absolute path to the binary in the client config
+- Make sure it is executable: `chmod +x mcp-ha-extended`
 
 **Tools not showing?**
+
 - Restart Cursor
 - Check Cursor logs for MCP errors
 

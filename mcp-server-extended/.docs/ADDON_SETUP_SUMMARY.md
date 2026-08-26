@@ -1,6 +1,6 @@
 # Addon Setup Summary
 
-This document summarizes the files created to convert the MCP Server Extended Python project into a Home Assistant addon.
+This document summarizes the files that make up the MCP Server Extended Home Assistant addon.
 
 ## Files Created
 
@@ -20,7 +20,7 @@ This document summarizes the files created to convert the MCP Server Extended Py
    - Multi-stage build process
    - Installs system dependencies
    - Sets up S6 overlay, bashio, and tempio
-   - Installs Python dependencies using PDM
+   - Cross-compiles the Go binary and copies it into the image
    - Configures the application runtime
 
 4. **build.sh** - Build script
@@ -102,11 +102,11 @@ The addon supports:
 - ✅ Logging integration with Home Assistant
 - ✅ Automatic restarts on failure
 - ✅ Multi-architecture support
-- ✅ Python dependency management with PDM
+- ✅ Reproducible builds from `go.mod`/`go.sum`
 
 ## Notes
 
-- The addon uses PDM for Python dependency management (see [PDM Setup](PDM_SETUP.md))
+- The addon is a single statically linked Go binary; the image carries no language runtime
 - Dependencies are installed system-wide (not in a virtual environment)
 - The MCP server communicates via stdio
 - Configuration is read from Home Assistant addon options via bashio
