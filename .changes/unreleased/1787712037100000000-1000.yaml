@@ -1,3 +1,0 @@
-kind: 'Security'
-body: 'enforced HTTPS on every artifact download. All 115 `curl` invocations across the 19 add-on `Dockerfile`s and the three `yq` downloads in the workflows now pass `--proto ''=https'' --proto-redir ''=https''`, so neither the initial request nor any redirect hop can be steered onto plain HTTP. The workflow downloads previously used `wget --https-only`, which blocks the downgrade in practice but is not what the scanner recognises; they are now `curl` for consistency with the `Dockerfile`s and to clear the rule.'
-time: '2026-08-26T02:40:37.000000000Z'

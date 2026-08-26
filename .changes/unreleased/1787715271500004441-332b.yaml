@@ -1,3 +1,0 @@
-kind: 'Added'
-body: 'added a `Tests` workflow that builds, vets, `gofmt`-checks and runs `go test -tags unit -race` for `mcp-server-extended` on every push and pull request that touches it. The repository previously had no test job at all, which is how a change requiring `HA_URL` reached `main` while breaking all fifteen tests that patched only `HA_TOKEN` — the automated review caught it, not the pipeline.'
-time: '2026-08-26T03:34:31.000000000Z'

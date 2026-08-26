@@ -1,3 +1,0 @@
-kind: 'Changed'
-body: 'made `HA_URL` required in `mcp-server-extended` instead of defaulting to `http://homeassistant.local:8123`. The old default hardcoded an unencrypted endpoint and silently aimed requests — bearer token included — at a guessed host whenever the variable was unset. The add-on always exports it from `config.yaml`, so add-on users see no change; the nested `CHANGELOG.md` records the effect on direct users of the MCP server.'
-time: '2026-08-26T02:40:37.000000000Z'

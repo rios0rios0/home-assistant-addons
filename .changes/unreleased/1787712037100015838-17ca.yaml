@@ -1,3 +1,0 @@
-kind: 'Security'
-body: 'pinned every GitHub Actions dependency to a full commit SHA — seven third-party actions and the three reusable workflows this repository calls — so a compromised or repointed tag cannot change what runs in CI. Each pin carries the human-readable version in a trailing comment, and a new `.github/dependabot.yaml` schedules weekly `github-actions` updates, because a pin nothing advances is just a stale dependency.'
-time: '2026-08-26T02:40:37.000000000Z'
