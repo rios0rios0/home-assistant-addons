@@ -337,8 +337,9 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
   3. **`manifest`**: Creates multi-arch manifests (skipped for PRs). Tags images with the version from `config.yaml` and `latest`. Runs even when the build matrix reports failure and gates per add-on — an add-on publishes only when every architecture in its `arch[]` produced a digest — so one broken add-on blocks only itself and a partial architecture set is never published.
 
 - **`_build-addon.yaml`** — Reusable per-arch build workflow. Accepts a `runner` input so `aarch64` builds land on a native ARM runner. Steps: checkout → arch→platform mapping → conditional QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
-- **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
-- **`claude-code-review.yaml`** — Automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
+- **`claude-mention.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to `rios0rios0/pipelines` (`reusable-claude-mention.yaml`).
+- **`claude-review.yaml`** — Automated PR review via Claude Code on PR open, sync, reopen, and ready-for-review. Delegates to `rios0rios0/pipelines` (`reusable-claude-review.yaml`).
+- **`test.yaml`** — Builds, vets, gofmt-checks, and tests `mcp-server-extended` on pushes and PRs that touch it (`go test -tags unit -race`).
 - **`release.yaml`** — Triggers on push to `main`. Delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
 
 ### Registry
