@@ -5,7 +5,7 @@ description: "Review pull requests and diffs in home-assistant-addons — the 19
 
 # Code review — `home-assistant-addons`
 
-This repository ships 19 containerised Home Assistant add-ons, each with its own `config.yaml`, `build.yaml`, `Dockerfile`, and `rootfs/` overlay, built for multiple architectures. `mcp-server-extended` additionally carries a Python (PDM) package with a pytest suite. Add-ons run inside people's homes with the privileges their configuration requests.
+This repository ships 19 containerised Home Assistant add-ons, each with its own `config.yaml`, `build.yaml`, `Dockerfile`, and `rootfs/` overlay, built for multiple architectures. `mcp-server-extended` additionally carries a Go module (Go modules, testify) with a unit suite gated behind the `unit` build tag. Add-ons run inside people's homes with the privileges their configuration requests.
 
 ## When to use this skill
 
@@ -32,13 +32,6 @@ guide disagree, the guide wins and this file should be corrected in the same pul
 
 | Topic | Page |
 |-------|------|
-| Python — the Zen and the toolchain | [Python](https://github.com/rios0rios0/guide/wiki/Python) |
-| Python Conventions — naming and meaningful comments | [Python-Conventions](https://github.com/rios0rios0/guide/wiki/Python-Conventions) |
-| Python Formatting and Linting — Black, isort, Flake8 | [Python-Formatting-and-Linting](https://github.com/rios0rios0/guide/wiki/Python-Formatting-and-Linting) |
-| Python Type System — type hints everywhere | [Python-Type-System](https://github.com/rios0rios0/guide/wiki/Python-Type-System) |
-| Python Logging — Loguru | [Python-Logging](https://github.com/rios0rios0/guide/wiki/Python-Logging) |
-| Python Testing — pytest and BDD blocks | [Python-Testing](https://github.com/rios0rios0/guide/wiki/Python-Testing) |
-| Python Project Structure | [Python-Project-Structure](https://github.com/rios0rios0/guide/wiki/Python-Project-Structure) |
 | YAML Conventions — `.yaml`, single quotes, unquoted scalars | [YAML](https://github.com/rios0rios0/guide/wiki/YAML) |
 | Mapper Design Pattern — replacing `switch`/`case` | [Mapper-Design-Pattern](https://github.com/rios0rios0/guide/wiki/Mapper-Design-Pattern) |
 | Git Flow — branches, commits, SemVer, breaking changes | [Git-Flow](https://github.com/rios0rios0/guide/wiki/Git-Flow) |
@@ -80,29 +73,41 @@ them before the generic ones.
 - **Base images and installed packages are version-pinned.** A floating `latest` base, or an unpinned `apk add`, makes the build non-reproducible and silently changes what users get.
 - **Ingress add-ons need `ingress`, `ingress_port`, and a working health path** — an ingress add-on that does not answer on its port shows an empty panel with no error.
 - **A new add-on is not done until it is in `repository.json`** and has its own `README.md`.
-- **`mcp-server-extended` is a real Python package** — PDM, `src/mcp_ha_extended/`, and a pytest suite under `tests/`. Hold it to the Python standards below.
+- **`mcp-server-extended` is a real Go module** — domain/infrastructure split under `internal/`, composition root in `cmd/mcp-ha-extended/` wired with Dig, and a testify suite whose files all carry `//go:build unit`. Hold it to the Go standards below.
 
 ### Commands a reviewer should be able to quote
 
 ```bash
 docker build --build-arg BUILD_FROM=<base> ./<addon>/
-cd mcp-server-extended && pdm install && pdm run pytest
+cd mcp-server-extended && go build ./... && go test -tags unit -race ./...
 ```
 
-## Python conventions
+The `unit` tag is not optional: every test file carries it, so an untagged `go test` reports "no test files" and passes without running anything.
 
-See [Python Conventions](https://github.com/rios0rios0/guide/wiki/Python-Conventions), [Python Type System](https://github.com/rios0rios0/guide/wiki/Python-Type-System),
-[Python Logging](https://github.com/rios0rios0/guide/wiki/Python-Logging), and
-[Formatting and Linting](https://github.com/rios0rios0/guide/wiki/Python-Formatting-and-Linting).
+## Go conventions
 
-- `snake_case` for modules, functions, and variables; `PascalCase` for classes.
-- **Type hints on every parameter and return type.** `Any` as a catch-all is prohibited.
-- Logging uses Loguru (`from loguru import logger`) — not the standard `logging` module and
-  not `print()`. Normal output goes to stdout, warnings and errors to stderr.
-- Formatting is Black, imports are ordered by isort, linting is Flake8. Comments explain
+`mcp-server-extended` is the only add-on with hand-written code; hold it to these rules. See
+[Code Style](https://github.com/rios0rios0/guide/wiki/Code-Style).
+
+- **Layering is load-bearing.** `internal/domain/` holds entities (`entities/`) and the
+  repository contracts (`repositories/`); `internal/infrastructure/` holds the Home Assistant
+  REST implementation, the MCP controller, its `mappers/`, and response DTOs (`responses/`);
+  `cmd/mcp-ha-extended/` is the composition root wired with **Dig**. Infrastructure depends on
+  domain, never the reverse — a domain package importing infrastructure is a **Critical**
+  finding.
+- **File names are `snake_case`.** Method receivers are a one- or two-letter abbreviation of
+  the type, consistent across the type. Accept interfaces, return structs.
+- **Entities carry no struct tags.** JSON tags live on the response DTOs in
+  `internal/infrastructure/controllers/responses/`; mapping happens in `mappers/`.
+- **Logging is Logrus to stderr only** — `stdout` carries the MCP protocol stream, so a
+  `logger` write or a stray `fmt.Println` to stdout corrupts the transport. Comments explain
   *why*, not *what*.
-- Tests use pytest with `# given` / `# when` / `# then` blocks, mirroring the source tree
-  under `tests/`.
+- **Every boundary call takes a `context.Context` first**, and errors are wrapped with
+  `fmt.Errorf("...: %w", err)` so the cause survives. Use the standard-library `net/http`
+  client, injected as a `*http.Client` so tests can substitute their own.
+- **Formatting is `gofmt`; `go vet -tags unit ./...` and `golangci-lint run` must pass**
+  (config in `.golangci.yaml`). `HA_URL` and `HA_TOKEN` are read from the environment and both
+  are required.
 
 ### Dispatch tables over `switch`
 
@@ -122,14 +127,16 @@ and YAML blocks inside Markdown.
 
 See [Tests](https://github.com/rios0rios0/guide/wiki/Tests).
 
-- `mcp-server-extended` has a pytest suite under `tests/` — new behaviour there needs a test with `# given` / `# when` / `# then` blocks.
+- `mcp-server-extended` has a testify suite living beside the code in external `_test`
+  packages, every file tagged `//go:build unit`, run with `go test -tags unit -race ./...`.
+  New behaviour needs a test that calls `t.Parallel()`, groups scenarios with `t.Run()`, and
+  carries `// given` / `// when` / `// then` blocks.
 - The other add-ons have no automated tests: verification is building the image for each declared architecture and starting the add-on in a real Home Assistant instance.
 
 ### Rules that hold for every test in this repository
 
 - **BDD blocks are mandatory.** Every test body carries `// given` / `// when` / `// then`
-  (`# given` / `# when` / `# then` in Python) delimiting preconditions, the action, and the
-  assertions. A test without them is a finding.
+  delimiting preconditions, the action, and the assertions. A test without them is a finding.
 - **Descriptions follow the layer.** Commands: `"should call <listener> when …"`.
   Controllers: `"should respond <HTTP_STATUS> when …"`. Services and repositories:
   `"should … when …"`, with at least one success and one failure case per public method.

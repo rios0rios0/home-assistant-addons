@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'refreshed `.github/skills/code-review/SKILL.md` to describe `mcp-server-extended` as the Go module it actually is (Go modules, testify, `//go:build unit`), replacing the stale Python/PDM/pytest guidance and commands'
+time: '2026-09-01T16:54:33.770560548Z'

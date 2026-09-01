@@ -29,8 +29,8 @@ Six workflows in `.github/workflows/`:
   2. `build`: fans out to the reusable workflow per `{addon, arch}` pair.
   3. `manifest`: stitches per-arch digests into a multi-arch manifest and tags it as both the `config.yaml` version and `latest`. Skipped on PRs. It runs even when the build matrix reports failure and gates per add-on: an add-on publishes only when every architecture in its `arch[]` produced a digest, and otherwise skips with a warning. One broken add-on therefore blocks only itself, and a partial architecture set is never published.
 - **`_build-addon.yaml`** — reusable per-arch build (checkout, arch→platform mapping, QEMU *only* when the target differs from the runner, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push. `aarch64` is dispatched to a native `ubuntu-24.04-arm` runner; `amd64` and `armv7` run on `ubuntu-latest`, the latter under QEMU because the ARM hosts do not execute 32-bit ARM.
-- **`claude.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to a reusable workflow in `rios0rios0/.github`.
-- **`claude-code-review.yaml`** — automated PR review via Claude Code on PR open/sync/reopen. Delegates to a reusable workflow in `rios0rios0/.github`.
+- **`claude-mention.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to `rios0rios0/pipelines` (`reusable-claude-mention.yaml`).
+- **`claude-review.yaml`** — automated PR review via Claude Code on PR open, sync, reopen, and ready-for-review. Delegates to `rios0rios0/pipelines` (`reusable-claude-review.yaml`).
 - **`test.yaml`** — builds, vets, gofmt-checks and tests `mcp-server-extended` on pushes and pull requests that touch it. Runs `go test -tags unit -race`.
 - **`release.yaml`** — triggers on push to `main`, delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
 
