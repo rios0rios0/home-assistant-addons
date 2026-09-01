@@ -22,6 +22,13 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-01
+
+### Changed
+
+- refreshed `.github/skills/code-review/SKILL.md` to describe `mcp-server-extended` as the Go module it actually is (Go modules, testify, `//go:build unit`), replacing the stale Python/PDM/pytest guidance and commands
+- refreshed `CLAUDE.md` and `.github/copilot-instructions.md` to reflect the renamed `claude-mention.yaml` and `claude-review.yaml` workflows and their delegation to `rios0rios0/pipelines`
+
 ## [0.3.1] - 2026-08-28
 
 ### Changed
