@@ -6,7 +6,7 @@ ARG BUILD_FROM
 # exists — roughly twenty minutes per build. Go cross-compiles the same target
 # in seconds, so `--platform=${BUILDPLATFORM}` pins this stage to the runner and
 # GOARCH/GOARM select the target.
-FROM --platform=${BUILDPLATFORM} golang:1.27-alpine AS app-build
+FROM --platform=${BUILDPLATFORM} golang:1.27.1-alpine AS app-build
 
 ARG TARGETARCH
 ARG TARGETVARIANT
