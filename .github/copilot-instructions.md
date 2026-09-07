@@ -341,6 +341,7 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
 - **`claude-review.yaml`** — Automated PR review via Claude Code on PR open, sync, reopen, and ready-for-review. Delegates to `rios0rios0/pipelines` (`reusable-claude-review.yaml`).
 - **`test.yaml`** — Builds, vets, gofmt-checks, and tests `mcp-server-extended` on pushes and PRs that touch it (`go test -tags unit -race`).
 - **`release.yaml`** — Triggers on push to `main`. Delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
+- **`checks.yaml`** — PR gate on pull requests targeting `main`. Delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules; grants `contents: read` per job.
 
 ### Registry
 
