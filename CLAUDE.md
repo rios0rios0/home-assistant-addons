@@ -22,7 +22,7 @@ Its `Dockerfile` cross-compiles from a `--platform=${BUILDPLATFORM}` builder sta
 
 ## CI/CD Architecture
 
-Six workflows in `.github/workflows/`:
+Seven workflows in `.github/workflows/`:
 
 - **`build.yaml`** — orchestrator. Three jobs:
   1. `detect-changes`: discovers all `config.yaml` files (depth 2), computes the changed subset via `git diff` against the base SHA, reads each add-on's `arch[]` list, and emits a `{addon, arch}` build matrix. Pushes to `main`, tag pushes, and any change under `.github/workflows/` rebuild **all** add-ons.
@@ -33,6 +33,7 @@ Six workflows in `.github/workflows/`:
 - **`claude-review.yaml`** — automated PR review via Claude Code on PR open, sync, reopen, and ready-for-review. Delegates to `rios0rios0/pipelines` (`reusable-claude-review.yaml`).
 - **`test.yaml`** — builds, vets, gofmt-checks and tests `mcp-server-extended` on pushes and pull requests that touch it. Runs `go test -tags unit -race`.
 - **`release.yaml`** — triggers on push to `main`, delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
+- **`checks.yaml`** — PR gate on pull requests targeting `main`. Delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules. Grants `contents: read` per job, not workflow-wide.
 
 ## Common Commands
 
