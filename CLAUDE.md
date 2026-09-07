@@ -83,7 +83,7 @@ golangci-lint run                    # lint (see .golangci.yaml)
 - **Ingress**: most add-ons expose their UI via `ingress: true` + `ingress_port: <port>` rather than publishing host ports.
 - **`rootfs/etc/services.d/<slug>/run`**: the service script runs under S6; `#!/usr/bin/with-contenv bashio` + `bashio::config 'key'` is the standard pattern for reading user-provided options.
 - **Releases**: bump the add-on's `version` in `config.yaml` and any badge in its `README.md` together. The `manifest` job derives both the `<version>` and `latest` tags from `config.yaml`.
-- **Changelog**: the root `CHANGELOG.md` is generated and is not edited by hand -- a repository-level change writes its own fragment under `.changes/unreleased/` with `chlog new --kind <Kind> --body "..."` (see the chlog section below); `mcp-server-extended/` keeps its own nested `CHANGELOG.md` for the Python package.
+- **Changelog**: the root `CHANGELOG.md` is generated and is not edited by hand -- a repository-level change writes its own fragment under `.changes/unreleased/` with `chlog new --kind <Kind> --body '...'` (see the chlog section below); `mcp-server-extended/` keeps its own nested `CHANGELOG.md` for the Python package.
 - **n8n workflows**: `n8n/workflows/*.json` are importable workflow definitions (not code the container runs). The add-on itself is an upstream-image wrapper; the JSON files are shipped for users to import into their n8n instance.
 
 - **Downloads**: every `curl` in a `Dockerfile` and every download in a workflow passes `--proto '=https' --proto-redir '=https'`, so neither the request nor any redirect hop can fall back to plain HTTP. Copy the flags when adding a new download.
@@ -112,13 +112,14 @@ being asked, before committing.
 
 - Do NOT edit CHANGELOG.md directly; it is generated from fragments.
 - Create the fragment with:
-  `chlog new --kind <Kind> --body "<imperative description>"`
+  `chlog new --kind <Kind> --body '<past-tense description>'`
+- Write an apostrophe inside the single-quoted body as `'\''`.
 - Valid kinds: Added, Changed, Deprecated, Removed, Fixed, Security
 - Choose the kind that best matches the change (e.g., new feature → Added,
   bug fix → Fixed, behavior change → Changed, removal → Removed, security fix → Security).
 - If the change is backward-INCOMPATIBLE with the public API (a breaking
   change), you MUST add the `--breaking` flag:
-  `chlog new --kind <Kind> --breaking --body "<description>"`.
+  `chlog new --kind <Kind> --breaking --body '<past-tense description>'`.
   This is the ONLY thing that triggers a major version bump — the kind alone
   never does (per SemVer, major = incompatible change). When unsure whether a
   change breaks compatibility, ask the user instead of guessing.
