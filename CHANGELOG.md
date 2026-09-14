@@ -22,6 +22,13 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-09-14
+
+### Changed
+
+- changed the Go module dependencies to their latest versions
+- refreshed `CLAUDE.md` to describe `mcp-server-extended`'s nested `CHANGELOG.md` as belonging to the Go add-on after the Python package was removed
+
 ## [0.4.2] - 2026-09-09
 
 ### Changed
