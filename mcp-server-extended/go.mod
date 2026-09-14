@@ -3,7 +3,7 @@ module github.com/rios0rios0/home-assistant-addons/mcp-server-extended
 go 1.27.1
 
 require (
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/dig v1.19.0
