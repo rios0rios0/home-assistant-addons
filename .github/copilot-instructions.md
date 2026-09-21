@@ -296,8 +296,8 @@ mcp.AddTool(server, &mcp.Tool{
 
 ### Adding a New MCP Tool
 
-1. Add `Tool` definition in `list_tools()` function
-2. Register it in `AutomationsController.Register` with `mcp.AddTool`
+1. Add the argument struct (with `jsonschema` tags) in `automations_controller.go` if the tool takes parameters
+2. Add the `Tool` definition and register it in `AutomationsController.Register` with `mcp.AddTool`
 3. Add the handler method and, if it needs new data access, a method on the repository contract
 4. Add unit tests in `internal/infrastructure/controllers/automations_controller_test.go`
 5. Update documentation in `.docs/USAGE_EXAMPLES.md`

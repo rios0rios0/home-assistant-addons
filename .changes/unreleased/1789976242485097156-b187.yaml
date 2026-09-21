@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'refreshed `.github/copilot-instructions.md` to correct the MCP tool recipe, which referenced a nonexistent `list_tools()` function'
+time: '2026-09-21T07:37:22.485021455Z'
