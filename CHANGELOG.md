@@ -22,6 +22,12 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-09-23
+
+### Changed
+
+- refreshed `.github/copilot-instructions.md` to correct the MCP tool recipe, which referenced a nonexistent `list_tools()` function
+
 ## [0.4.3] - 2026-09-14
 
 ### Changed
