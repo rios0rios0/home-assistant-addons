@@ -1,6 +1,6 @@
 module github.com/rios0rios0/home-assistant-addons/mcp-server-extended
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
