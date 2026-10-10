@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'changed the Go modules `golang.org/x/sync` from `v0.23.0` to `v0.24.0` and `golang.org/x/sys` from `v0.48.0` to `v0.49.0`'
+time: '2026-10-10T09:10:33.791077595Z'
