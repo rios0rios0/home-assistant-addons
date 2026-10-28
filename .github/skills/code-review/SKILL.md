@@ -20,7 +20,7 @@ The canonical engineering standards live in the
 repo-tailored index into that guide plus the rules that only apply here. Precedence, highest
 first:
 
-1. This repository's `.github/copilot-instructions.md`, `CLAUDE.md`, and `CONTRIBUTING.md` —
+1. This repository's `AGENTS.md`, `.github/copilot-instructions.md`, and `CONTRIBUTING.md` —
    they describe *this* codebase and its load-bearing invariants.
 2. The **rios0rios0/guide** wiki — the shared standard.
 3. General language idiom.
@@ -72,13 +72,16 @@ them before the generic ones.
 - **Secrets come from add-on options, never from the image.** A token baked into a Dockerfile is in the published image forever — **Critical**.
 - **Base images and installed packages are version-pinned.** A floating `latest` base, or an unpinned `apk add`, makes the build non-reproducible and silently changes what users get.
 - **Ingress add-ons need `ingress`, `ingress_port`, and a working health path** — an ingress add-on that does not answer on its port shows an empty panel with no error.
-- **A new add-on is not done until it is in `repository.json`** and has its own `README.md`.
+- **A new add-on is not done until it has a row in the root `README.md` add-on table** and its own `README.md`. Home Assistant discovers add-ons from their directories; `repository.json` holds only repository metadata.
 - **`mcp-server-extended` is a real Go module** — domain/infrastructure split under `internal/`, composition root in `cmd/mcp-ha-extended/` wired with Dig, and a testify suite whose files all carry `//go:build unit`. Hold it to the Go standards below.
 
 ### Commands a reviewer should be able to quote
 
 ```bash
-docker build --build-arg BUILD_FROM=<base> ./<addon>/
+# Pass BUILD_FROM, BUILD_ARCH, and every key under the add-on's build.yaml `args`.
+docker build --build-arg BUILD_FROM=<base> --build-arg BUILD_ARCH=<arch> \
+  --build-arg BASHIO_VERSION=<v> --build-arg TEMPIO_VERSION=<v> \
+  --build-arg S6_OVERLAY_VERSION=<v> ./<addon>/
 cd mcp-server-extended && go build ./... && go test -tags unit -race ./...
 ```
 
@@ -173,8 +176,9 @@ hand.
 - Fragment bodies start with a lowercase verb in simple past tense, capitalise proper nouns
   (GitHub, Go, Docker), and wrap code identifiers and versions in backticks.
 - `README.md` is updated whenever usage, setup, configuration, or architecture changes;
-  `.github/copilot-instructions.md` and `CLAUDE.md` whenever the workflow, commands, or
-  structure changes. Documentation and code ship in one commit.
+  `AGENTS.md` and `.github/copilot-instructions.md` whenever the workflow, commands, or
+  structure changes (`CLAUDE.md` stays the single line `@AGENTS.md`). Documentation and code
+  ship in one commit.
 
 ## Git Flow and pull-request hygiene
 
@@ -237,7 +241,7 @@ A review that raises noise gets ignored. Do not report these:
 ### Change-control checklist
 - [ ] Changelog entry present for every behavioural change
 - [ ] `README.md` updated if usage, setup, or architecture changed
-- [ ] `.github/copilot-instructions.md` and `CLAUDE.md` updated if the workflow, commands, or structure changed
+- [ ] `AGENTS.md` and `.github/copilot-instructions.md` updated if the workflow, commands, or structure changed
 - [ ] Commit messages follow `type(SCOPE): message` in simple past tense
 - [ ] Breaking changes flagged in the commit footer, the changelog, and the PR description
 
