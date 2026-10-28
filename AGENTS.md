@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, Codex, Cursor, GitHub Copilot) when working with code in this repository.
 
 ## Repository Purpose
 
@@ -39,7 +39,7 @@ Seven workflows in `.github/workflows/`:
 
 ### Building an add-on locally
 
-Use the versions from the add-on's own `build.yaml`:
+Use the versions from the add-on's own `build.yaml`, and pass every other key under its `args` too — `whisper-cpp` (`WHISPER_VERSION`), `opencode` (`OPENCODE_VERSION`), and `openclaw` (`OPENCLAW_VERSION`) declare their own version arg with no default:
 
 ```bash
 docker build \
@@ -98,7 +98,7 @@ golangci-lint run                    # lint (see .golangci.yaml)
 
 ## What Not to Touch Without a Reason
 
-- **Per-arch base image pins in `build.yaml`**: changing `BASHIO_VERSION` / `TEMPIO_VERSION` / `S6_OVERLAY_VERSION` rebuilds all add-ons and shifts the runtime surface — do only when intentional.
+- **`BASHIO_VERSION` / `TEMPIO_VERSION` / `S6_OVERLAY_VERSION`**: every add-on's `build.yaml` carries its own copy of the same three values. Change them in all add-ons together, and only on purpose — it shifts every add-on's runtime surface.
 - **The `detect-changes` matrix logic**: any change under `.github/workflows/` triggers a full rebuild of all 19 add-ons.
 
 <!-- chlog:start -->

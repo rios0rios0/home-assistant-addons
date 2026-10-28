@@ -49,5 +49,5 @@ Each add-on lives in its own directory and follows the Home Assistant add-on for
    yq eval '.arch[]' ntfy/config.yaml
    ```
 6. Test the add-on in Home Assistant by adding this repository as a local add-on repository
-7. Commit following the [commit conventions](https://github.com/rios0rios0/guide/wiki/Life-Cycle/Git-Flow)
+7. Commit following the [commit conventions](https://github.com/rios0rios0/guide/wiki/Git-Flow)
 8. Open a pull request against `main`

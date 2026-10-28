@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'refreshed `AGENTS.md`, `.github/copilot-instructions.md`, the `code-review` skill, and `CONTRIBUTING.md` to document the per-add-on version build args, point at `AGENTS.md` instead of `CLAUDE.md`, and drop stale Python-era and debug-logging guidance'
+time: '2026-10-28T23:45:37.254711794Z'
