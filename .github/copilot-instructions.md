@@ -335,17 +335,15 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
 
 ### Workflow Architecture
 
-- **`build.yaml`** — Orchestration workflow with three jobs:
-  1. **`detect-changes`**: Discovers which add-ons changed (via `git diff`), reads their supported architectures from `config.yaml`, and produces a build matrix. On pushes to `main` or tags, all add-ons are rebuilt. If any file under `.github/workflows/` changes, all add-ons are rebuilt.
-  2. **`build`**: Fans out to the reusable `_build-addon.yaml` workflow for each `{addon, arch}` pair in the matrix.
-  3. **`manifest`**: Creates multi-arch manifests (skipped for PRs). Tags images with the version from `config.yaml` and `latest`. Runs even when the build matrix reports failure and gates per add-on — an add-on publishes only when every architecture in its `arch[]` produced a digest — so one broken add-on blocks only itself and a partial architecture set is never published.
+- **`build.yaml`** — The pipeline: one workflow, three stages, each started only once the whole stage before it is done. The jobs after `checks` gate on `!cancelled() && !failure()`, because `checks` is skipped outside pull requests and GitHub skips every job after a skipped one unless its `if:` says otherwise.
+  1. **code-check** — `checks` delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules on pull requests (check name `checks / code-check > quality:basic-checks`). `detect-changes` discovers which add-ons changed (via `git diff` against the pull request's base or the commit a push replaced), reads their architectures from `config.yaml`, and produces the build matrix plus `test_mcp`. A push to `main` builds only the add-ons it changed; tags, a manual run without an add-on, a push with no commit to diff against, and any change under `.github/workflows/` rebuild all of them.
+  2. **tests** — `mcp-server-extended` builds, vets, gofmt-checks and tests that add-on (`go test -tags unit -race`) whenever it is about to be built.
+  3. **delivery** — `build` fans out to the reusable `_build-addon.yaml` workflow per `{addon, arch}` pair, at most 6 at a time (`max-parallel`). `manifest` is one job that creates every complete add-on's multi-arch manifest (skipped for PRs), tagged with the `config.yaml` version and `latest`. It runs even when the build matrix reports failure and gates per add-on — an add-on publishes only when every architecture in its `arch[]` produced a digest — so one broken add-on blocks only itself and a partial architecture set is never published.
 
 - **`_build-addon.yaml`** — Reusable per-arch build workflow. Accepts a `runner` input so `aarch64` builds land on a native ARM runner. Steps: checkout → arch→platform mapping → conditional QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
 - **`claude-mention.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to `rios0rios0/pipelines` (`reusable-claude-mention.yaml`).
 - **`claude-review.yaml`** — Automated PR review via Claude Code on PR open, sync, reopen, and ready-for-review. Delegates to `rios0rios0/pipelines` (`reusable-claude-review.yaml`).
-- **`test.yaml`** — Builds, vets, gofmt-checks, and tests `mcp-server-extended` on pushes and PRs that touch it (`go test -tags unit -race`).
 - **`release.yaml`** — Triggers on push to `main`. Delegates to `rios0rios0/pipelines` to create Git tags when version-bump PRs merge.
-- **`checks.yaml`** — PR gate on pull requests targeting `main`. Delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules; grants `contents: read` per job.
 
 ### Registry
 
