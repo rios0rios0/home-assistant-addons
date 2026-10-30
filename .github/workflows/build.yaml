@@ -6,7 +6,7 @@ name: 'Build and Push Docker Images'
 #   code-check  `checks`          the shared rebase and changelog gate (pull requests only)
 #               `detect-changes`  which add-ons this run builds, and whether it tests
 #   tests       `mcp-server-extended`, the one add-on that ships application code
-#   delivery    `build`           one job per add-on and architecture, all in parallel
+#   delivery    `build`           one job per add-on and architecture, 4 at a time
 #               `manifest`        one job that publishes every complete add-on (pushes only)
 #
 # A push to `main` or a tag is delivery, and delivery rebuilds EVERY add-on: each build pulls its
@@ -16,7 +16,7 @@ name: 'Build and Push Docker Images'
 # These used to be three workflows that started together (`checks.yaml`, `test.yaml` and this
 # one), so the builds ran beside the checks and the tests instead of after them, and 19
 # one-add-on manifest jobs followed. Now delivery starts only once the checks and the tests have
-# passed, builds every image at once, and publishes them from one manifest job.
+# passed, builds 4 images at a time, and publishes them from one manifest job.
 #
 # GitHub skips a job whose `needs:` was skipped unless its `if:` says otherwise, and the skip
 # reaches every job after it, not only the next one. `checks` is skipped outside pull requests,
@@ -265,8 +265,10 @@ jobs:
     strategy:
       fail-fast: false
       # Each build is a separate image on a native runner for its architecture, independent of
-      # every other, so delivery runs them all at once: the stage only starts after the checks
-      # and the tests have passed, and nothing else of this pipeline runs beside it.
+      # every other, so they run side by side -- 4 at a time, so a full rebuild of 43 images does
+      # not take every runner the account has. What the stage isolation forbids is a build beside
+      # the checks or the tests, and delivery only starts after both have passed.
+      max-parallel: 4
       matrix: "${{ fromJson(needs.detect-changes.outputs.matrix) }}"
     uses: './.github/workflows/_build-addon.yaml'
     with:
