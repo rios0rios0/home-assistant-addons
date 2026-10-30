@@ -4,15 +4,20 @@ name: 'Build and Push Docker Images'
 # One pipeline, three stages, each started only once the whole stage before it is done:
 #
 #   code-check  `checks`          the shared rebase and changelog gate (pull requests only)
-#               `detect-changes`  which add-ons this change builds, and whether it tests
+#               `detect-changes`  which add-ons this run builds, and whether it tests
 #   tests       `mcp-server-extended`, the one add-on that ships application code
 #   delivery    `build`           one job per add-on and architecture, at most 6 at a time
 #               `manifest`        one job that publishes every complete add-on (pushes only)
 #
+# A push to `main` or a tag is delivery, and delivery rebuilds EVERY add-on: each build pulls its
+# base image afresh, so an add-on nobody touched still picks up its base image's security fixes on
+# the next merge. A pull request builds only the add-ons it changes, to prove they still build.
+#
 # These used to be three workflows that started together (`checks.yaml`, `test.yaml` and this
-# one), and every push to `main` rebuilt all 19 add-ons whatever it changed: 63 jobs at once --
-# 43 builds and 19 one-add-on manifest jobs -- that peaked at 17 concurrent runners for a change
-# that touched no add-on at all, taking them from every other repository's pipeline.
+# one), and the rebuild started all of its jobs at once: 63 of them -- 43 builds and 19
+# one-add-on manifest jobs -- peaking at 17 concurrent runners and taking them from every other
+# repository's pipeline. Now it starts after the checks and the tests, at most 6 builds at a time,
+# with one manifest job.
 #
 # GitHub skips a job whose `needs:` was skipped unless its `if:` says otherwise, and the skip
 # reaches every job after it, not only the next one. `checks` is skipped outside pull requests,
@@ -92,20 +97,17 @@ jobs:
 
           CHANGED_ADDONS=""
 
-          # Everything is rebuilt only when nothing narrower is known: a tag, a run started by
-          # hand without an add-on, a push with no commit before it, and a change to a workflow.
-          # A push to `main` builds what it changed, like a pull request does. It used to rebuild
-          # all 19 add-ons on every merge -- a documentation change included -- re-publishing
-          # each one's `<version>` and `latest` tags from unchanged sources. To refresh every
-          # image on purpose (a base image security release, say), run this workflow by hand
-          # with no add-on.
+          # Delivery -- a push to `main` or a tag -- rebuilds every add-on, so each image picks up
+          # its base image's security fixes whether or not its own files changed; so does a run
+          # started by hand without an add-on. A pull request builds only what it changes, unless
+          # it changes a workflow, which every build depends on.
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             if [[ -n "$INPUT_ADDON" ]]; then
               CHANGED_ADDONS="$INPUT_ADDON"
             else
               CHANGED_ADDONS="$ALL_ADDONS"
             fi
-          elif [[ "$GIT_REF" == refs/tags/* ]]; then
+          elif [[ "$GIT_REF" == refs/tags/* || "$GIT_REF" == "refs/heads/main" ]]; then
             CHANGED_ADDONS="$ALL_ADDONS"
           else
             # Determine base commit for diff
@@ -264,10 +266,10 @@ jobs:
     strategy:
       fail-fast: false
       # Each build is a separate image on a native runner for its architecture, so they do run
-      # side by side -- but at most 6: two add-ons' full architecture sets at once. A full
-      # rebuild is 43 builds; uncapped, it took 17 runners at once from every other repository's
-      # pipeline. A cache-warm build measured 25s, so the cap costs a full rebuild about three
-      # minutes and the usual one-add-on change (2-3 builds) nothing.
+      # side by side -- but at most 6: two add-ons' full architecture sets at once. Delivery
+      # rebuilds all 43; uncapped, that took 17 runners at once from every other repository's
+      # pipeline. Capped, it measured 10 minutes on #68, and a pull request that changes one
+      # add-on (2-3 builds) is not slowed at all.
       max-parallel: 6
       matrix: "${{ fromJson(needs.detect-changes.outputs.matrix) }}"
     uses: './.github/workflows/_build-addon.yaml'
