@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'changed the delivery stage to build every add-on image at once instead of at most 6 at a time: each build is an independent image on its own native runner, and the stage already starts only after the checks and the tests have passed, so nothing else of the pipeline runs beside it'
+time: '2026-10-30T21:26:32.124873519Z'

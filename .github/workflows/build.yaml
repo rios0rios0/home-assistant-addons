@@ -6,7 +6,7 @@ name: 'Build and Push Docker Images'
 #   code-check  `checks`          the shared rebase and changelog gate (pull requests only)
 #               `detect-changes`  which add-ons this run builds, and whether it tests
 #   tests       `mcp-server-extended`, the one add-on that ships application code
-#   delivery    `build`           one job per add-on and architecture, at most 6 at a time
+#   delivery    `build`           one job per add-on and architecture, all in parallel
 #               `manifest`        one job that publishes every complete add-on (pushes only)
 #
 # A push to `main` or a tag is delivery, and delivery rebuilds EVERY add-on: each build pulls its
@@ -14,10 +14,9 @@ name: 'Build and Push Docker Images'
 # the next merge. A pull request builds only the add-ons it changes, to prove they still build.
 #
 # These used to be three workflows that started together (`checks.yaml`, `test.yaml` and this
-# one), and the rebuild started all of its jobs at once: 63 of them -- 43 builds and 19
-# one-add-on manifest jobs -- peaking at 17 concurrent runners and taking them from every other
-# repository's pipeline. Now it starts after the checks and the tests, at most 6 builds at a time,
-# with one manifest job.
+# one), so the builds ran beside the checks and the tests instead of after them, and 19
+# one-add-on manifest jobs followed. Now delivery starts only once the checks and the tests have
+# passed, builds every image at once, and publishes them from one manifest job.
 #
 # GitHub skips a job whose `needs:` was skipped unless its `if:` says otherwise, and the skip
 # reaches every job after it, not only the next one. `checks` is skipped outside pull requests,
@@ -265,12 +264,9 @@ jobs:
       packages: 'write'
     strategy:
       fail-fast: false
-      # Each build is a separate image on a native runner for its architecture, so they do run
-      # side by side -- but at most 6: two add-ons' full architecture sets at once. Delivery
-      # rebuilds all 43; uncapped, that took 17 runners at once from every other repository's
-      # pipeline. Capped, it measured 10 minutes on #68, and a pull request that changes one
-      # add-on (2-3 builds) is not slowed at all.
-      max-parallel: 6
+      # Each build is a separate image on a native runner for its architecture, independent of
+      # every other, so delivery runs them all at once: the stage only starts after the checks
+      # and the tests have passed, and nothing else of this pipeline runs beside it.
       matrix: "${{ fromJson(needs.detect-changes.outputs.matrix) }}"
     uses: './.github/workflows/_build-addon.yaml'
     with:
