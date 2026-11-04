@@ -22,6 +22,16 @@ Exceptions are acceptable depending on the circumstances (critical bug fixes tha
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-11-04
+
+### Changed
+
+- changed the CI into one pipeline of three stages run in order -- code-check (the changelog gate and the change detection), tests (`mcp-server-extended`) and delivery (the image builds, then one manifest job) -- each waiting for the whole stage before it, in place of three workflows that started together. Delivery (a push to `main` or a tag) still rebuilds every add-on, so each image keeps picking up its base image's security fixes, but it now starts after the checks and the tests and runs at most 6 builds at a time instead of 43 at once, and the 19 per-add-on manifest jobs became one; a pull request builds only the add-ons it changes
+- changed the delivery stage to build 4 add-on images at a time instead of 6: the builds are independent images on their own native runners and stay parallel, but a full rebuild of 43 no longer holds 6 runners at once; the stage still starts only after the checks and the tests have passed
+- changed the Go module `go.yaml.in/yaml/v3` from `v3.0.5` to `v3.0.6`
+- moved the agent instructions from `CLAUDE.md` to `AGENTS.md`, keeping a `CLAUDE.md` that imports it
+- refreshed `AGENTS.md`, `.github/copilot-instructions.md`, the `code-review` skill, and `CONTRIBUTING.md` to document the per-add-on version build args, point at `AGENTS.md` instead of `CLAUDE.md`, and drop stale Python-era and debug-logging guidance
+
 ## [0.4.6] - 2026-10-21
 
 ### Changed
