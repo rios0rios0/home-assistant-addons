@@ -11,7 +11,11 @@ name: 'Build and Push Docker Images'
 #
 # A push to `main` or a tag is delivery, and delivery rebuilds EVERY add-on: each build pulls its
 # base image afresh, so an add-on nobody touched still picks up its base image's security fixes on
-# the next merge. A pull request builds only the add-ons it changes, to prove they still build.
+# the next merge. A pull request builds only the add-ons it changes, to prove they still build. One
+# that changes how every image is built -- this file or `_build-addon.yaml` -- proves it on
+# `mcp-server-extended` alone, the add-on that declares every architecture and has a test stage,
+# instead of rebuilding them all: the full rebuild is delivery's, once the change is merged. A
+# change to any other workflow builds nothing.
 #
 # These used to be three workflows that started together (`checks.yaml`, `test.yaml` and this
 # one), so the builds ran beside the checks and the tests instead of after them, and 19
@@ -98,8 +102,7 @@ jobs:
 
           # Delivery -- a push to `main` or a tag -- rebuilds every add-on, so each image picks up
           # its base image's security fixes whether or not its own files changed; so does a run
-          # started by hand without an add-on. A pull request builds only what it changes, unless
-          # it changes a workflow, which every build depends on.
+          # started by hand without an add-on. A pull request builds only what it changes.
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             if [[ -n "$INPUT_ADDON" ]]; then
               CHANGED_ADDONS="$INPUT_ADDON"
@@ -125,15 +128,22 @@ jobs:
             else
               CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD)
 
-              # If workflow files changed, rebuild all add-ons
-              if echo "$CHANGED_FILES" | grep -q '^\.github/workflows/'; then
-                CHANGED_ADDONS="$ALL_ADDONS"
-              else
-                for addon in $ALL_ADDONS; do
-                  if echo "$CHANGED_FILES" | grep -q "^${addon}/"; then
-                    CHANGED_ADDONS="${CHANGED_ADDONS} ${addon}"
-                  fi
-                done
+              for addon in $ALL_ADDONS; do
+                if echo "$CHANGED_FILES" | grep -q "^${addon}/"; then
+                  CHANGED_ADDONS="${CHANGED_ADDONS} ${addon}"
+                fi
+              done
+
+              # A change to how every image is built -- this pipeline or its build template -- is
+              # proven on ONE add-on rather than by rebuilding them all, which is delivery's job
+              # once the change is merged; every workflow change, Dependabot's action bumps
+              # included, used to rebuild all of them here. `mcp-server-extended` declares every
+              # architecture and is the one add-on with a test stage, so it takes the change
+              # through every stage and every kind of runner. Any other workflow builds nothing.
+              CANARY_ADDON='mcp-server-extended'
+              if echo "$CHANGED_FILES" | grep -q -E '^\.github/workflows/(build|_build-addon)\.yaml$' \
+                && [[ " ${CHANGED_ADDONS} " != *" ${CANARY_ADDON} "* ]]; then
+                CHANGED_ADDONS="${CHANGED_ADDONS} ${CANARY_ADDON}"
               fi
             fi
           fi
@@ -153,8 +163,8 @@ jobs:
             fi
 
             # The one add-on with application code is tested whenever it is about to be built,
-            # which is what the path filter of the old `test.yaml` asked for -- plus every
-            # workflow change, which rebuilds it too.
+            # which is what the path filter of the old `test.yaml` asked for -- plus every change
+            # to the pipeline, which builds it to prove the change.
             [ "$addon" = 'mcp-server-extended' ] && TEST_MCP=true
 
             # Collect unique addon names for the manifest job

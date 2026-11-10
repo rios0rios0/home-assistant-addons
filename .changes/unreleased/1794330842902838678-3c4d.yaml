@@ -1,0 +1,3 @@
+kind: 'Changed'
+body: 'changed pull requests that change a workflow to stop rebuilding all 19 add-ons (43 images), leaving the full rebuild to delivery after the merge: one that changes `build.yaml` or `_build-addon.yaml` proves it on `mcp-server-extended` alone (every architecture, plus its tests), and a change to any other workflow, such as a Dependabot bump of the release pin or of the Claude callers, builds nothing'
+time: '2026-11-10T17:14:02.902780091Z'
