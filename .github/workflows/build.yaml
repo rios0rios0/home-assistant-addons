@@ -257,12 +257,10 @@ jobs:
         run: 'go build ./...'
 
       - name: 'Vet'
-        run: 'go vet -tags unit ./...'
+        run: 'go vet ./...'
 
       - name: 'Test'
-        # `-tags unit` is required: every test file carries a build tag, so an
-        # untagged run silently reports "no test files" and passes.
-        run: 'go test -tags unit -race -count=1 ./...'
+        run: 'go test -race -count=1 ./...'
 
   # third stage: delivery
   build:

@@ -121,7 +121,7 @@ See [Usage Examples](.docs/USAGE_EXAMPLES.md) for detailed examples.
 go mod download
 
 # Run tests
-go test -tags unit ./...
+go test ./...
 
 # Run the server
 go run ./cmd/mcp-ha-extended

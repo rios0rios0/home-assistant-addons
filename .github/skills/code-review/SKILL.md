@@ -5,7 +5,7 @@ description: "Review pull requests and diffs in home-assistant-addons — the 19
 
 # Code review — `home-assistant-addons`
 
-This repository ships 19 containerised Home Assistant add-ons, each with its own `config.yaml`, `build.yaml`, `Dockerfile`, and `rootfs/` overlay, built for multiple architectures. `mcp-server-extended` additionally carries a Go module (Go modules, testify) with a unit suite gated behind the `unit` build tag. Add-ons run inside people's homes with the privileges their configuration requests.
+This repository ships 19 containerised Home Assistant add-ons, each with its own `config.yaml`, `build.yaml`, `Dockerfile`, and `rootfs/` overlay, built for multiple architectures. `mcp-server-extended` additionally carries a Go module (Go modules, testify) with a unit suite that carries no build tag. Add-ons run inside people's homes with the privileges their configuration requests.
 
 ## When to use this skill
 
@@ -73,7 +73,7 @@ them before the generic ones.
 - **Base images and installed packages are version-pinned.** A floating `latest` base, or an unpinned `apk add`, makes the build non-reproducible and silently changes what users get.
 - **Ingress add-ons need `ingress`, `ingress_port`, and a working health path** — an ingress add-on that does not answer on its port shows an empty panel with no error.
 - **A new add-on is not done until it has a row in the root `README.md` add-on table** and its own `README.md`. Home Assistant discovers add-ons from their directories; `repository.json` holds only repository metadata.
-- **`mcp-server-extended` is a real Go module** — domain/infrastructure split under `internal/`, composition root in `cmd/mcp-ha-extended/` wired with Dig, and a testify suite whose files all carry `//go:build unit`. Hold it to the Go standards below.
+- **`mcp-server-extended` is a real Go module** — domain/infrastructure split under `internal/`, composition root in `cmd/mcp-ha-extended/` wired with Dig, and a testify suite whose files carry no build tag. Hold it to the Go standards below.
 
 ### Commands a reviewer should be able to quote
 
@@ -82,10 +82,10 @@ them before the generic ones.
 docker build --build-arg BUILD_FROM=<base> --build-arg BUILD_ARCH=<arch> \
   --build-arg BASHIO_VERSION=<v> --build-arg TEMPIO_VERSION=<v> \
   --build-arg S6_OVERLAY_VERSION=<v> ./<addon>/
-cd mcp-server-extended && go build ./... && go test -tags unit -race ./...
+cd mcp-server-extended && go build ./... && go test -race ./...
 ```
 
-The `unit` tag is not optional: every test file carries it, so an untagged `go test` reports "no test files" and passes without running anything.
+Test files carry no build tag: the team's testing standard bans `//go:build unit`, so flag a test file that adds it.
 
 ## Go conventions
 
@@ -108,7 +108,7 @@ The `unit` tag is not optional: every test file carries it, so an untagged `go t
 - **Every boundary call takes a `context.Context` first**, and errors are wrapped with
   `fmt.Errorf("...: %w", err)` so the cause survives. Use the standard-library `net/http`
   client, injected as a `*http.Client` so tests can substitute their own.
-- **Formatting is `gofmt`; `go vet -tags unit ./...` and `golangci-lint run` must pass**
+- **Formatting is `gofmt`; `go vet ./...` and `golangci-lint run` must pass**
   (config in `.golangci.yaml`). `HA_URL` and `HA_TOKEN` are read from the environment and both
   are required.
 
@@ -131,7 +131,7 @@ and YAML blocks inside Markdown.
 See [Tests](https://github.com/rios0rios0/guide/wiki/Tests).
 
 - `mcp-server-extended` has a testify suite living beside the code in external `_test`
-  packages, every file tagged `//go:build unit`, run with `go test -tags unit -race ./...`.
+  packages, with no build tag, run with `go test -race ./...`.
   New behaviour needs a test that calls `t.Parallel()`, groups scenarios with `t.Run()`, and
   carries `// given` / `// when` / `// then` blocks.
 - The other add-ons have no automated tests: verification is building the image for each declared architecture and starting the add-on in a real Home Assistant instance.

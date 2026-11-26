@@ -123,8 +123,6 @@ If extending the existing Home Assistant MCP server, you would:
 Example test:
 
 ```go
-//go:build unit
-
 func TestList(t *testing.T) {
 	t.Parallel()
 
@@ -143,8 +141,7 @@ func TestList(t *testing.T) {
 }
 ```
 
-Run them with `go test -tags unit ./...` — the build tag is required, or the
-packages report "no test files" and pass without testing anything.
+Run them with `go test ./...`; test files carry no build tag.
 
 ## Security Considerations
 
