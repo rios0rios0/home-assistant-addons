@@ -16,7 +16,7 @@ The `Dockerfile` uses a multi-stage build: the first stage pulls the official up
 
 ### 2. Go application (`mcp-server-extended`)
 
-The only add-on that ships its own application code. It is a Go module following the domain/infrastructure split: `internal/domain/` holds the `Automation` entity and the `AutomationsRepository` contract, `internal/infrastructure/` holds the Home Assistant REST implementation and the MCP controller, and `cmd/mcp-ha-extended/` is the composition root wired with **Dig**. Logging is **Logrus** to stderr (stdout carries the MCP protocol stream). Tests use **testify**, live beside the code in external `_test` packages, carry a `//go:build unit` tag, and run in parallel via `t.Parallel()` + `t.Run()`; doubles and builders live under `test/domain/`. The add-on exposes Home Assistant automation management over the **Model Context Protocol** to external MCP clients; it reads `HA_URL` and `HA_TOKEN` from env, both required.
+The only add-on that ships its own application code. It is a Go module following the domain/infrastructure split: `internal/domain/` holds the `Automation` entity and the `AutomationsRepository` contract, `internal/infrastructure/` holds the Home Assistant REST implementation and the MCP controller, and `cmd/mcp-ha-extended/` is the composition root wired with **Dig**. Logging is **Logrus** to stderr (stdout carries the MCP protocol stream). Tests use **testify**, live beside the code in external `_test` packages, carry no build tag, and run in parallel via `t.Parallel()` + `t.Run()`; doubles and builders live under `test/domain/`. The add-on exposes Home Assistant automation management over the **Model Context Protocol** to external MCP clients; it reads `HA_URL` and `HA_TOKEN` from env, both required.
 
 Its `Dockerfile` cross-compiles from a `--platform=${BUILDPLATFORM}` builder stage, so no architecture is emulated and the runtime image carries a single static binary with no language runtime.
 
@@ -26,7 +26,7 @@ Five workflows in `.github/workflows/`:
 
 - **`build.yaml`** — the pipeline: one workflow, three stages, each started only once the whole stage before it is done. `checks` is skipped outside pull requests, and GitHub skips every job after a skipped one unless its `if:` says otherwise, so the jobs after it gate on `!cancelled() && !failure()` — never `always()` or `!failure()` alone, which would start them on a cancelled run.
   1. **code-check** — `checks` delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules on pull requests; it keeps that job id, so the check is still `checks / code-check > quality:basic-checks`. `detect-changes` discovers all `config.yaml` files (depth 2), computes the changed subset via `git diff` against the pull request's base or the commit a push replaced, reads each add-on's `arch[]` list, and emits a `{addon, arch}` build matrix and `test_mcp`. A push to `main`, a tag push and a manual run without an add-on are delivery and rebuild **all** add-ons, so every image picks up its base image's security fixes on the next merge even when its own files did not change. A pull request never rebuilds them all: it builds only the add-ons it changes, plus `mcp-server-extended` (every architecture, and its tests) when it changes `build.yaml` or `_build-addon.yaml`, to prove the pipeline on one add-on; a change to any other workflow builds nothing.
-  2. **tests** — `mcp-server-extended` builds, vets, gofmt-checks and tests that add-on whenever it is about to be built (`test_mcp`). Runs `go test -tags unit -race`.
+  2. **tests** — `mcp-server-extended` builds, vets, gofmt-checks and tests that add-on whenever it is about to be built (`test_mcp`). Runs `go test -race`.
   3. **delivery** — `build` fans out to the reusable workflow per `{addon, arch}` pair, 4 at a time (`max-parallel`), and only after the checks and the tests have passed, so nothing else of the pipeline runs beside the builds. `manifest` is one job that stitches each add-on's per-arch digests into a multi-arch manifest and tags it as both the `config.yaml` version and `latest`. Skipped on PRs. It runs whenever `build` ran, even when the build matrix reports failure, and gates per add-on: an add-on publishes only when every architecture in its `arch[]` produced a digest, and otherwise skips with a warning. One broken add-on therefore blocks only itself, and a partial architecture set is never published.
 - **`_build-addon.yaml`** — reusable per-arch build (checkout, arch→platform mapping, QEMU *only* when the target differs from the runner, parse `build.yaml`, Docker Buildx build, push digest artifact). PRs build-only, no push. `aarch64` is dispatched to a native `ubuntu-24.04-arm` runner; `amd64` and `armv7` run on `ubuntu-latest`, the latter under QEMU because the ARM hosts do not execute 32-bit ARM.
 - **`claude-mention.yaml`** — Claude Code agent triggered by issue comments, PR review comments, opened/assigned issues, and submitted PR reviews. Delegates to `rios0rios0/pipelines` (`reusable-claude-mention.yaml`).
@@ -64,14 +64,14 @@ All commands from inside `mcp-server-extended/`:
 ```bash
 go mod download                      # install deps
 go build ./...                       # compile
-go test -tags unit ./...             # run the suite (the tag is required)
-go test -tags unit -run TestName ./... # single test
-go vet -tags unit ./...              # vet
+go test ./...                        # run the suite
+go test -run TestName ./...          # single test
+go vet ./...                         # vet
 gofmt -l .                           # list unformatted files
 golangci-lint run                    # lint (see .golangci.yaml)
 ```
 
-`-tags unit` is not optional: every test file carries the build tag, so an untagged run reports "no test files" and passes without testing anything.
+Test files carry no build tag (the team's testing standard bans the `unit` tag), so these commands run the whole suite.
 
 ## Conventions Specific to This Repo
 

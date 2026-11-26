@@ -151,14 +151,14 @@ The root `repository.json` file contains:
 
 ### Testing
 - Framework: **testify** (`assert` and `require`)
-- Every test file carries a `//go:build unit` tag and lives in an external `_test` package
+- Test files carry no build tag (the team's testing standard bans the `unit` tag) and live in external `_test` packages
 - Unit tests call `t.Parallel()` and group scenarios with `t.Run()`
-- Run tests: `go test -tags unit ./...` — **the tag is required**, or packages report "no test files" and pass without testing anything
+- Run tests: `go test ./...`
 - Prefer in-memory doubles and builders from `test/domain/` over mocks
 
 ### Code Quality
 - **gofmt**: Code formatter — `gofmt -l .` lists unformatted files
-- **go vet**: `go vet -tags unit ./...`
+- **go vet**: `go vet ./...`
 - **golangci-lint**: Linter, configured in `.golangci.yaml`
 
 ## Coding Standards and Best Practices
@@ -230,11 +230,9 @@ mcp.AddTool(server, &mcp.Tool{
 - Replace external dependencies with the in-memory double in `test/domain/doubles/`
 - Build fixtures with `test/domain/builders/`, not literals
 - Test both success and error paths
-- Every test file carries `//go:build unit` and lives in an external `_test` package
+- Test files carry no build tag and live in external `_test` packages
 - Example pattern:
   ```go
-  //go:build unit
-
   func TestFeature(t *testing.T) {
   	t.Parallel()
 
@@ -310,7 +308,7 @@ mcp.AddTool(server, &mcp.Tool{
 
 1. `go get <module>@<version>`
 2. Prune and sync with `go mod tidy`
-3. Run tests: `go test -tags unit ./...`
+3. Run tests: `go test ./...`
 4. Commit both `go.mod` and `go.sum`
 
 ### Debugging
@@ -337,7 +335,7 @@ GitHub Actions builds Docker images on every push to `main`, on tag pushes (`v*`
 
 - **`build.yaml`** — The pipeline: one workflow, three stages, each started only once the whole stage before it is done. The jobs after `checks` gate on `!cancelled() && !failure()`, because `checks` is skipped outside pull requests and GitHub skips every job after a skipped one unless its `if:` says otherwise.
   1. **code-check** — `checks` delegates to `rios0rios0/pipelines` (`checks.yaml`) to enforce the shared rebase and changelog rules on pull requests (check name `checks / code-check > quality:basic-checks`). `detect-changes` discovers which add-ons changed (via `git diff` against the pull request's base or the commit a push replaced), reads their architectures from `config.yaml`, and produces the build matrix plus `test_mcp`. A push to `main`, a tag and a manual run without an add-on are delivery and rebuild all of them, so each image picks up its base image's security fixes. A pull request never rebuilds them all: it builds only the add-ons it changes, plus `mcp-server-extended` (every architecture, and its tests) when it changes `build.yaml` or `_build-addon.yaml`; a change to any other workflow builds nothing.
-  2. **tests** — `mcp-server-extended` builds, vets, gofmt-checks and tests that add-on (`go test -tags unit -race`) whenever it is about to be built.
+  2. **tests** — `mcp-server-extended` builds, vets, gofmt-checks and tests that add-on (`go test -race`) whenever it is about to be built.
   3. **delivery** — `build` fans out to the reusable `_build-addon.yaml` workflow per `{addon, arch}` pair, 4 at a time (`max-parallel`), once the checks and the tests have passed. `manifest` is one job that creates every complete add-on's multi-arch manifest (skipped for PRs), tagged with the `config.yaml` version and `latest`. It runs even when the build matrix reports failure and gates per add-on — an add-on publishes only when every architecture in its `arch[]` produced a digest — so one broken add-on blocks only itself and a partial architecture set is never published.
 
 - **`_build-addon.yaml`** — Reusable per-arch build workflow. Accepts a `runner` input so `aarch64` builds land on a native ARM runner. Steps: checkout → arch→platform mapping → conditional QEMU setup → parse `build.yaml` for base images/args → Docker Buildx build → push digest artifact. PRs validate only (no push).
